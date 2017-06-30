@@ -1,0 +1,23 @@
+{
+  "name": "flight-seat-auction",
+  "version": "0.0.1",
+  "description": "AGiView Flight Seat Auction Upgrade - Server Side",
+  "main": "index.js",
+  "scripts": {
+    "test": "test.js",
+    "start": "node ./index.js"
+  },
+  "keywords": [
+    "agiview"
+  ],
+  "author": "agiview wenn",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "express": "^4.15.3",
+    "jsonwebtoken": "^7.4.1",
+    "lodash": "^4.17.4",
+    "mongo": "^0.1.0",
+    "mongoose": "^4.10.6"
+  }
+}
