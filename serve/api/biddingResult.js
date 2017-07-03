@@ -24,6 +24,13 @@ var auctionParamSchema = new mongoose.Schema({
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
+var flightInfoSchema = new mongoose.Schema({
+    id: { type:String },
+    name: { type:String },
+    tel: { type:String }
+},{collection:"flightInfo"});
+var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+
 var serverTokenSchema = new mongoose.Schema({
     Token: { type:String }
 },{collection:"serverToken"});
@@ -120,6 +127,42 @@ router.post('/', function (req, res, next) {
                                             }
                                             else {
                                                 var flight = docs[0].flight;
+                                                var candidateID = [];
+                                                for(var i=0;i<seatnum && i<docs.length;i++)
+                                                    candidateID.push(docs[i].id);
+                                                flightInfoModel.find({id:{$in:candidateID}}, function (err, lists) {
+                                                    if(err){
+                                                        console.log(err);
+                                                        console.log(500 + ": Server error");
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        for(var i=0;i<docs.length && i<seatnum;i++){
+                                                            for(var j=0;j<lists.length;j++){
+                                                                if(docs[i].id === lists[j].id){
+                                                                    candidate = {
+                                                                        name: lists[j].name,
+                                                                        tel: lists[j].tel,
+                                                                        seat: docs[i].seat,
+                                                                        price: docs[i].biddingPrice,
+                                                                        paid: docs[i].paymentState
+                                                                    };
+                                                                    passenger.push(candidate);
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                        resdata.timestamp = Date.parse(new Date());
+                                                        resdata.flight = flight;
+                                                        resdata.person = passenger;
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                })
+                                                /*
                                                 for (var i=0; i < seatnum && i < docs.length; i++) {
                                                     (function (i) {
                                                         var price = docs[i].biddingPrice;
@@ -156,6 +199,7 @@ router.post('/', function (req, res, next) {
                                                         });
                                                     })(i);
                                                 }
+                                                */
                                             }
                                         }
                                     });

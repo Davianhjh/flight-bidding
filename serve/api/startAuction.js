@@ -48,7 +48,6 @@ router.post('/', function (req, res, next) {
         auction: -1,
         timelap: -1
     };
-
     serverTokenModel.find({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
@@ -99,7 +98,13 @@ router.post('/', function (req, res, next) {
                             res.end();
                         }
                         else {
-                            if(docs.length===0) {
+                            if(typeof(auctionid) === "undefined"){
+                                console.log(403 + ": auctionID invalid params error");
+                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                res.write(JSON.stringify(resdata));
+                                res.end();
+                            }
+                            else if(docs.length===0) {
                                 auctionData.save(function (err) {
                                     if (err) {
                                         console.log(err);

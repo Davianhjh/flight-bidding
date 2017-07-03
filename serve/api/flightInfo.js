@@ -102,13 +102,49 @@ router.get('/', function (req, res, next) {
                                 }
                                 else {
                                     var flights = [];
-                                    var tmp = 0;
+                                    var auctionflights = [];
+                                    for(var i=0;i<docs.length;i++)
+                                        auctionflights.push(docs[i].auctionID);
+                                    auctionParamModel.find({auctionID:{$in:auctionflights}}, function (err, lists) {
+                                        if(err){
+                                            console.log(error);
+                                            console.log(500 + ": Server error");
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                        else {
+                                            for(var i=0;i<docs.length;i++){
+                                                var auctionState = -1;
+                                                for(var j=0;j<lists.length;j++){
+                                                   if(docs[i].auctionID === lists[j].auctionID){
+                                                       auctionState = lists[j].auctionState;
+                                                   }
+                                                }
+                                                var flightData = {
+                                                    flightno: docs[i].flight,
+                                                    ticketno: docs[i].ticketnum,
+                                                    date: docs[i].date,
+                                                    userstatus: docs[i].userstatus,
+                                                    auctionID: docs[i].auctionID,
+                                                    auctionState: auctionState,
+                                                    departure: docs[i].origin,
+                                                    departurecode: docs[i].O_code,
+                                                    arrival: docs[i].destination,
+                                                    arrivalcode: docs[i].D_code
+                                                };
+                                                flights.push(flightData);
+                                            }
+                                            resdata.result = 1;
+                                            resdata.flights = flights;
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                    })
+                                    /*
                                     for (var i=0; i < docs.length; i++) {
                                         (function (i) {
-                                            if(tmp === 0){
-                                                i = 0;
-                                                tmp = 1;
-                                            }
                                             var auctionState = -1;
                                             auctionParamModel.find({auctionID: docs[i].auctionID}, function (err, doc) {
                                                 if (err) {
@@ -149,6 +185,7 @@ router.get('/', function (req, res, next) {
                                             });
                                         })(i);
                                     }
+                                    */
                                 }
                             }
                         });
