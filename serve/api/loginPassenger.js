@@ -40,7 +40,7 @@ router.get('/', function (req, res, next) {
             var name = docs[0].name;
             var phone = docs[0].tel;
             var token = jwt.sign({
-                exp: Math.floor(Date.now() / 1000) + (60 * 60),
+                exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
                 id: id,
                 password: pwd,
                 timestamp: Date.parse(new Date())

@@ -110,7 +110,8 @@ router.get('/', function (req, res, next) {
                                         arrival: docs[i].destination,
                                         arrivalcode: docs[i].D_code,
                                         date: docs[i].date,
-                                        auctionID: docs[i].auctionID
+                                        auctionID: docs[i].auctionID,
+                                        time: 300
                                     };
                                     flights.push(flightData);
                                 }

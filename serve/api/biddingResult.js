@@ -64,7 +64,6 @@ router.post('/', function (req, res, next) {
         flight: -1,
         person: []
     };
-
     serverTokenModel.find({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
@@ -128,10 +127,10 @@ router.post('/', function (req, res, next) {
                                             else {
                                                 var flight = docs[0].flight;
                                                 var candidateID = [];
-                                                for(var i=0;i<seatnum && i<docs.length;i++)
+                                                for (var i = 0; i < seatnum && i < docs.length; i++)
                                                     candidateID.push(docs[i].id);
-                                                flightInfoModel.find({id:{$in:candidateID}}, function (err, lists) {
-                                                    if(err){
+                                                flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
+                                                    if (err) {
                                                         console.log(err);
                                                         console.log(500 + ": Server error");
                                                         res.writeHead(200, {'Content-Type': 'application/json'});
@@ -139,14 +138,14 @@ router.post('/', function (req, res, next) {
                                                         res.end();
                                                     }
                                                     else {
-                                                        for(var i=0;i<docs.length && i<seatnum;i++){
-                                                            for(var j=0;j<lists.length;j++){
-                                                                if(docs[i].id === lists[j].id){
+                                                        for (var i = 0; i < docs.length && i < seatnum; i++) {
+                                                            for (var j = 0; j < lists.length; j++) {
+                                                                if (docs[i].id === lists[j].id) {
                                                                     candidate = {
                                                                         name: lists[j].name,
                                                                         tel: lists[j].tel,
                                                                         seat: docs[i].seat,
-                                                                        price: docs[i].biddingPrice,
+                                                                        price: docs[i].biddingPrice.toString(),
                                                                         paid: docs[i].paymentState
                                                                     };
                                                                     passenger.push(candidate);
@@ -161,9 +160,10 @@ router.post('/', function (req, res, next) {
                                                         res.write(JSON.stringify(resdata));
                                                         res.end();
                                                     }
-                                                })
+                                                });
                                                 /*
-                                                for (var i=0; i < seatnum && i < docs.length; i++) {
+                                                var flight = docs[0].flight;
+                                                for (var i = 0; i < seatnum && i < docs.length; i++) {
                                                     (function (i) {
                                                         var price = docs[i].biddingPrice;
                                                         var paid = docs[i].paymentState;
@@ -187,7 +187,7 @@ router.post('/', function (req, res, next) {
                                                                     paid: paid
                                                                 };
                                                                 passenger.push(candidate);
-                                                                if(i===seatnum-1 || i===docs.length-1){
+                                                                if (i === seatnum - 1 || i === docs.length - 1) {
                                                                     resdata.timestamp = Date.parse(new Date());
                                                                     resdata.flight = flight;
                                                                     resdata.person = passenger;
@@ -254,7 +254,6 @@ router.get('/',function (req, res, next) {
                         res.end();
                     }
                     passengerID = decoded.id;
-
                     auctionParamModel.find({auctionID:auctionid}, function (err, docs) {
                         if(err) {
                             console.log(err);
@@ -297,7 +296,7 @@ router.get('/',function (req, res, next) {
                                                     resdata.paid = docs[i].paymentState;
                                                 }
                                             }
-                                            if (result<seatnum && result !== false)
+                                            if (result <= seatnum && result !== false)
                                                 resdata.hit = 1;
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));

@@ -33,7 +33,7 @@ router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
 var BASEPRICE = 512;
-var TIMELAP = 300;
+var TIMELAP = 120;
 var AUCTIONTYPE = 1;
 
 router.post('/', function (req, res, next) {
@@ -48,6 +48,7 @@ router.post('/', function (req, res, next) {
         auction: -1,
         timelap: -1
     };
+
     serverTokenModel.find({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);

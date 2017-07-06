@@ -66,19 +66,20 @@ router.get('/', function(req, res, next){
                         console.log(err);
                     else {
                         console.log('save success');
-                        console.log(data);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.write(JSON.stringify(result));
+                        res.end();
                     }
                 });
             }
             else {
                 console.log('repeated auction id save failure');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.write(JSON.stringify(result));
+                res.end();
             }
         }
     });
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.write(JSON.stringify(result));
-    res.end();
 });
 
 function prediction(presentFee, presentSeat) {

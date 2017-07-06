@@ -11,6 +11,7 @@ var apis = {
     biddingPrice: require('./biddingPrice'),
     biddingResult: require('./biddingResult'),
     setPaid: require('./setPaid'),
+    transaction: require('./transaction'),
     expChart: require('./expChart')
 };
 // Rest API's registered Above.

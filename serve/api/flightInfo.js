@@ -117,9 +117,10 @@ router.get('/', function (req, res, next) {
                                             for(var i=0;i<docs.length;i++){
                                                 var auctionState = -1;
                                                 for(var j=0;j<lists.length;j++){
-                                                   if(docs[i].auctionID === lists[j].auctionID){
-                                                       auctionState = lists[j].auctionState;
-                                                   }
+                                                    if(docs[i].auctionID === lists[j].auctionID){
+                                                        auctionState = lists[j].auctionState;
+                                                        break;
+                                                    }
                                                 }
                                                 var flightData = {
                                                     flightno: docs[i].flight,
@@ -143,6 +144,7 @@ router.get('/', function (req, res, next) {
                                         }
                                     })
                                     /*
+                                    var flights = [];
                                     for (var i=0; i < docs.length; i++) {
                                         (function (i) {
                                             var auctionState = -1;
@@ -171,9 +173,6 @@ router.get('/', function (req, res, next) {
                                                         arrivalcode: docs[i].D_code
                                                     };
                                                     flights.push(flightData);
-                                                    console.log(i);
-                                                    console.log(docs.length);
-                                                    console.log(flights);
                                                      if(i === docs.length-1) {
                                                          resdata.result = 1;
                                                          resdata.flights = flights;
@@ -219,7 +218,7 @@ router.get('/', function (req, res, next) {
                                             res.end();
                                         }
                                         else {
-                                            if (docs.length !== 0) {
+                                            if (doc.length !== 0) {
                                                 auctionState = doc[0].auctionState;
                                             }
                                             var flightData = {
