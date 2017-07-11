@@ -53,9 +53,9 @@ router.get('/', function (req, res, next) {
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (err, decoded) {
-                    if (err) {
-                        console.log(err);
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
                         res.writeHead(200, {'Content-Type': 'application/json'});

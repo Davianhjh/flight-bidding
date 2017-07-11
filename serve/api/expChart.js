@@ -8,10 +8,6 @@ db.on('error', function(error) {
     console.log(error);
 });
 
-function zeroFill (i) {
-    return (i < 10 ? '0' : '') + i
-}
-
 var chartDataSchema = new mongoose.Schema({
     auctionID: { type:String },
     probability: { type: Array },
@@ -43,10 +39,8 @@ var price = [];
 var router = require('express').Router();
 
 router.get('/', function(req, res, next){
-    var flightnumber = req.query.flight;
-    var nowDate = new Date();
-    var dateStr = nowDate.getFullYear()+zeroFill(nowDate.getMonth()+1)+zeroFill(nowDate.getDate());
-    var auctionid = dateStr + flightnumber;
+    var flight = req.query.flight;
+    var auctionid = req.query.auctionid;
     var result = prediction(RRESENTFEE,PRESENTSEAT);
 
     var data = new chartDataModel({

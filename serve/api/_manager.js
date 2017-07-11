@@ -9,6 +9,7 @@ var apis = {
     startAuction: require('./startAuction'),
     timeRemaining: require('./timeRemaining'),
     biddingPrice: require('./biddingPrice'),
+    heatLevel: require('./heatLevel'),
     biddingResult: require('./biddingResult'),
     setPaid: require('./setPaid'),
     transaction: require('./transaction'),

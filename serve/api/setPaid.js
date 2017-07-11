@@ -63,53 +63,58 @@ router.post('/', function (req, res, next) {
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (err, decoded) {
-                    if (err) {
-                        console.log(err);
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
                         res.writeHead(200, {'Content-Type': 'application/json'});
                         res.write(JSON.stringify(resdata));
                         res.end();
                     }
-                    attendantID = decoded.id;
+                    else {
+                        attendantID = decoded.id;
 
-                    flightInfoModel.find({name:name, auctionID:auctionid}, function (err, docs) {
-                        if(err){
-                            console.log(err);
-                            console.log(500 + ": Server error");
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.write(JSON.stringify(resdata));
-                            res.end();
-                        }
-                        else {
-                            if(docs.length === 0){
-                                console.log(404+": passenger name not found in flightInfo");
+                        flightInfoModel.find({name: name, auctionID: auctionid}, function (err, docs) {
+                            if (err) {
+                                console.log(err);
+                                console.log(500 + ": Server error");
                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                 res.write(JSON.stringify(resdata));
                                 res.end();
                             }
                             else {
-                                var id = docs[0].id;
-                                biddingResultModel.update({auctionID:auctionid, id:id}, {paymentState:true}, function (err) {
-                                    if(err){
-                                        console.log(err);
-                                        console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
-                                    }
-                                    else {
-                                        resdata.paid = true;
-                                        console.log("Update paymentState success");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
-                                    }
-                                })
+                                if (docs.length === 0) {
+                                    console.log(404 + ": passenger name not found in flightInfo");
+                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                    res.write(JSON.stringify(resdata));
+                                    res.end();
+                                }
+                                else {
+                                    var id = docs[0].id;
+                                    biddingResultModel.update({
+                                        auctionID: auctionid,
+                                        id: id
+                                    }, {paymentState: true}, function (err) {
+                                        if (err) {
+                                            console.log(err);
+                                            console.log(500 + ": Server error");
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                        else {
+                                            resdata.paid = true;
+                                            console.log("Update paymentState success");
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                    });
+                                }
                             }
-                        }
-                    })
+                        });
+                    }
                 });
             }
         }

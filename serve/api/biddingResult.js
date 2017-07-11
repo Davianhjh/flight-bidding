@@ -82,9 +82,9 @@ router.post('/', function (req, res, next) {
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (err, decoded) {
-                    if (err) {
-                        console.log(err);
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
                         res.writeHead(200, {'Content-Type': 'application/json'});
@@ -244,69 +244,71 @@ router.get('/',function (req, res, next) {
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (err, decoded) {
-                    if (err) {
-                        console.log(err);
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
                         res.writeHead(200, {'Content-Type': 'application/json'});
                         res.write(JSON.stringify(resdata));
                         res.end();
                     }
-                    passengerID = decoded.id;
-                    auctionParamModel.find({auctionID:auctionid}, function (err, docs) {
-                        if(err) {
-                            console.log(err);
-                            console.log(500 + ": Server error");
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.write(JSON.stringify(resdata));
-                        }
-                        else {
-                            if(docs.length === 0) {
-                                console.log(404+": auctionID not found in auctionParam");
+                    else {
+                        passengerID = decoded.id;
+                        auctionParamModel.find({auctionID: auctionid}, function (err, docs) {
+                            if (err) {
+                                console.log(err);
+                                console.log(500 + ": Server error");
                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                 res.write(JSON.stringify(resdata));
-                                res.end();
                             }
                             else {
-                                var seatnum = docs[0].seatnum;
-                                resdata.seats = seatnum;
-                                biddingResultModel.find({auctionID:auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
-                                    if(err) {
-                                        console.log(err);
-                                        console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
-                                    }
-                                    else {
-                                        if (docs.length === 0) {
-                                            console.log(404+": auctionID not found in auctionResult");
+                                if (docs.length === 0) {
+                                    console.log(404 + ": auctionID not found in auctionParam");
+                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                    res.write(JSON.stringify(resdata));
+                                    res.end();
+                                }
+                                else {
+                                    var seatnum = docs[0].seatnum;
+                                    resdata.seats = seatnum;
+                                    biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
+                                        if (err) {
+                                            console.log(err);
+                                            console.log(500 + ": Server error");
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));
                                             res.end();
                                         }
                                         else {
-                                            var result = false;
-                                            for (var i = 0; i < docs.length; i++) {
-                                                if (docs[i].id === passengerID) {
-                                                    result = i + 1;
-                                                    resdata.rank = result;
-                                                    resdata.price = docs[i].biddingPrice;
-                                                    resdata.paid = docs[i].paymentState;
-                                                }
+                                            if (docs.length === 0) {
+                                                console.log(404 + ": auctionID not found in auctionResult");
+                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                res.write(JSON.stringify(resdata));
+                                                res.end();
                                             }
-                                            if (result <= seatnum && result !== false)
-                                                resdata.hit = 1;
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
+                                            else {
+                                                var result = false;
+                                                for (var i = 0; i < docs.length; i++) {
+                                                    if (docs[i].id === passengerID) {
+                                                        result = i + 1;
+                                                        resdata.rank = result;
+                                                        resdata.price = docs[i].biddingPrice;
+                                                        resdata.paid = docs[i].paymentState;
+                                                    }
+                                                }
+                                                if (result <= seatnum && result !== false)
+                                                    resdata.hit = 1;
+                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                res.write(JSON.stringify(resdata));
+                                                res.end();
+                                            }
                                         }
-                                    }
-                                });
+                                    });
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 });
             }
         }
