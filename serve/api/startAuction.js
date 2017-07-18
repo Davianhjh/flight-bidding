@@ -34,7 +34,7 @@ router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
 var BASEPRICE = 512;
-var TIMELAP = 180;
+var TIMELAP = 180;              //timeLap here's to change
 var AUCTIONTYPE = 1;
 
 router.post('/', function (req, res, next) {
@@ -82,7 +82,10 @@ router.post('/', function (req, res, next) {
                         if (flight === "CZ6605")
                             AUCTIONTYPE = 1;
                         else if (flight === "HU7187")
-                            AUCTIONTYPE = 2;
+                            AUCTIONTYPE = 3;
+
+                        else if (flight === "HU7803")
+                            AUCTIONTYPE = 4;
                         var startTime = Date.parse(new Date());
                         var auctionData = new auctionParamModel({
                             "auctionID": auctionid,

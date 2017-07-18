@@ -118,7 +118,7 @@ router.get('/', function (req, res, next) {
                                             else {
                                                 for (var i = 0; i < docs.length; i++) {
                                                     var auctionState = -1;
-                                                    var auctionType = -1;
+                                                    var auctionType = 0;
                                                     for (var j = 0; j < lists.length; j++) {
                                                         if (docs[i].auctionID === lists[j].auctionID) {
                                                             auctionState = lists[j].auctionState;
@@ -147,49 +147,7 @@ router.get('/', function (req, res, next) {
                                                 res.write(JSON.stringify(resdata));
                                                 res.end();
                                             }
-                                        })
-                                        /*
-                                         var flights = [];
-                                         for (var i=0; i < docs.length; i++) {
-                                         (function (i) {
-                                         var auctionState = -1;
-                                         auctionParamModel.find({auctionID: docs[i].auctionID}, function (err, doc) {
-                                         if (err) {
-                                         console.log(error);
-                                         console.log(500 + ": Server error");
-                                         res.writeHead(200, {'Content-Type': 'application/json'});
-                                         res.write(JSON.stringify(resdata));
-                                         res.end();
-                                         }
-                                         else {
-                                         if (doc.length !== 0) {
-                                         auctionState = doc[0].auctionState;
-                                         }
-                                         var flightData = {
-                                         flightno: docs[i].flight,
-                                         ticketno: docs[i].ticketnum,
-                                         date: docs[i].date,
-                                         userstatus: docs[i].userstatus,
-                                         auctionID: docs[i].auctionID,
-                                         auctionState: auctionState,
-                                         departure: docs[i].origin,
-                                         departurecode: docs[i].O_code,
-                                         arrival: docs[i].destination,
-                                         arrivalcode: docs[i].D_code
-                                         };
-                                         flights.push(flightData);
-                                         if(i === docs.length-1) {
-                                         resdata.result = 1;
-                                         resdata.flights = flights;
-                                         res.writeHead(200, {'Content-Type': 'application/json'});
-                                         res.write(JSON.stringify(resdata));
-                                         res.end();
-                                         }
-                                         }
-                                         });
-                                         })(i);
-                                         }
-                                         */
+                                        });
                                     }
                                 }
                             });
@@ -218,7 +176,7 @@ router.get('/', function (req, res, next) {
                                     else {
                                         var flights = [];
                                         var auctionState = -1;
-                                        var auctionType = -1;
+                                        var auctionType = 0;
                                         auctionParamModel.find({auctionID: docs[0].auctionID}, function (err, doc) {
                                             if (err) {
                                                 console.log(error);

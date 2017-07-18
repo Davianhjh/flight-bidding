@@ -14,7 +14,8 @@ var biddingResultSchema = new mongoose.Schema({
     flight: { type:String },
     seat: { type:String },
     biddingPrice: { type:Number },
-    paymentState: { type:Boolean }
+    paymentState: { type:Boolean },
+    paymentPrice: { type:Number }
 },{collection:"biddingResult"});
 var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
 
@@ -116,7 +117,8 @@ router.get('/', function (req, res, next) {
                                         flight: flight,
                                         seat: docs[0].seat,
                                         biddingPrice: price,
-                                        paymentState: false
+                                        paymentState: false,
+                                        paymentPrice: 0
                                     });
                                     auctionParamModel.find({auctionID: auctionid}, function (err, docs) {
                                         if (err) {
@@ -140,7 +142,7 @@ router.get('/', function (req, res, next) {
                                                 res.end();
                                             }
                                             else {
-                                                if (docs[0].auctionType === 1) {
+                                                if (docs[0].auctionType === 1 || docs[0].auctionType === 2 || docs[0].auctionType === 4) {
                                                     biddingResultModel.find({
                                                         auctionID: auctionid,
                                                         id: passengerID
@@ -194,7 +196,7 @@ router.get('/', function (req, res, next) {
                                                         }
                                                     });
                                                 }
-                                                else if (docs[0].auctionType === 2) {
+                                                else if (docs[0].auctionType === 3) {
                                                     biddingResultModel.find({
                                                         auctionID: auctionid,
                                                         id: passengerID

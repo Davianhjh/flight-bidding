@@ -4,6 +4,7 @@ var apis = {
     loginpassenger: require('./loginPassenger'),
     loginattendant: require('./loginAttendant'),
     flightInfo: require('./flightInfo'),
+    overSelling: require('./overSelling'),
     attendantInfo: require('./attendantInfo'),
     bidding: require('./bidding'),
     startAuction: require('./startAuction'),

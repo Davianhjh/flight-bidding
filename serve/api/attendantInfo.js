@@ -23,6 +23,7 @@ var attentdantInfoModel = db.model("attendantInfo", attendantInfoSchema,"attenda
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     auctionState: { type:Number },
+    auctionType: { type:Number },
     seatnum: { type:Number }
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
@@ -47,9 +48,10 @@ function zeroFill (i) {
     return (i < 10 ? '0' : '') + i
 }
 
-router.get('/', function (req, res, next) {
+router.post('/', function (req, res, next) {
     var attendantID = "";
     var token = req.headers['agi-token'];
+    var type = req.body.type;
     var resdata = {
         result: 1,
         person: {},
@@ -89,11 +91,27 @@ router.get('/', function (req, res, next) {
                     }
                     else {
                         attendantID = decoded.id;
-
+                        var flightArray = [];
                         var nowDate = new Date();
                         var dateStr = nowDate.getFullYear() + zeroFill(nowDate.getMonth() + 1) + zeroFill(nowDate.getDate());
+                        var dateFormat = nowDate.getFullYear() + "-" + zeroFill(nowDate.getMonth() + 1) + "-" + zeroFill(nowDate.getDate());
 
-                        attentdantInfoModel.find({id: attendantID, date: dateStr}, function (err, docs) {
+                        if(type === "2")
+                            flightArray.push("HU7803");
+                        else if(type === "1"){
+                            flightArray.push("HU7187");
+                            flightArray.push("CZ6605");
+                        }
+                        else {
+                            console.log(403 + ": type param error ");
+                            res.writeHead(200, {'Content-Type': 'application/json'});
+                            res.write(JSON.stringify(resdata));
+                            res.end();
+                            return;
+                        }
+                        attentdantInfoModel.find({id: attendantID, date: dateStr})
+                            .where("flight").in(flightArray)
+                            .exec(function (err, docs) {
                             if (err) {
                                 console.log(err);
                                 console.log(500 + ": Server error");
@@ -103,7 +121,7 @@ router.get('/', function (req, res, next) {
                             }
                             else {
                                 if (docs.length === 0) {
-                                    console.log(404 + ": Attendant not existed on today's flight");
+                                    console.log(404 + ": Attendant not existed on today's type" + type + "flight");
                                     resdata.result = 1;
                                     resdata.person = {
                                         name: name,
@@ -130,6 +148,7 @@ router.get('/', function (req, res, next) {
                                         else {
                                             for (var i = 0; i < docs.length; i++) {
                                                 var auctionState = 1;
+                                                var auctionType = 0;
                                                 var seatnum = -1;
                                                 for (var j = 0; j < lists.length; j++) {
                                                     if (docs[i].auctionID === lists[j].auctionID) {
@@ -137,6 +156,7 @@ router.get('/', function (req, res, next) {
                                                             auctionState = 2;
                                                         else if (lists[j].auctionState === 2)
                                                             auctionState = 0;
+                                                        auctionType = lists[j].auctionType;
                                                         seatnum = lists[j].seatnum;
                                                         break;
                                                     }
@@ -147,9 +167,10 @@ router.get('/', function (req, res, next) {
                                                     departurecode: docs[i].O_code,
                                                     arrival: docs[i].destination,
                                                     arrivalcode: docs[i].D_code,
-                                                    date: docs[i].date,
+                                                    date: dateFormat,
                                                     auctionID: docs[i].auctionID,
                                                     auctionState: auctionState.toString(),
+                                                    auctionType: auctionType.toString(),
                                                     seatnum: seatnum.toString(),
                                                     time: timelap
                                                 };
@@ -179,10 +200,10 @@ router.get('/', function (req, res, next) {
 });
 
 
-router.post('/', function (req, res, next) {
+router.get('/', function (req, res, next) {
     var attendantID = "";
     var token = req.headers['agi-token'];
-    var flight = req.body.flight;
+    var flight = req.query.flight;
     var resdata = {
         result: 1,
         person: {},
@@ -224,6 +245,7 @@ router.post('/', function (req, res, next) {
 
                         var nowDate = new Date();
                         var dateStr = nowDate.getFullYear() + zeroFill(nowDate.getMonth() + 1) + zeroFill(nowDate.getDate());
+                        var dateFormat = nowDate.getFullYear() + "-" + zeroFill(nowDate.getMonth() + 1) + "-" + zeroFill(nowDate.getDate());
 
                         attentdantInfoModel.find({
                             id: attendantID,
@@ -252,7 +274,8 @@ router.post('/', function (req, res, next) {
                                 }
                                 else {
                                     var flights = [];
-                                    var auctionState = -1;
+                                    var auctionState = 1;
+                                    var auctionType = 0;
                                     var seatnum = -1;
                                     auctionParamModel.find({auctionID: docs[0].auctionID}, function (err, doc) {
                                         if (err) {
@@ -268,6 +291,7 @@ router.post('/', function (req, res, next) {
                                                     auctionState = 2;
                                                 else if (doc[0].auctionState === 2)
                                                     auctionState = 0;
+                                                auctionType = doc[0].auctionType;
                                                 seatnum = doc[0].seatnum;
                                             }
                                             var flightData = {
@@ -276,9 +300,10 @@ router.post('/', function (req, res, next) {
                                                 departurecode: docs[0].O_code,
                                                 arrival: docs[0].destination,
                                                 arrivalcode: docs[0].D_code,
-                                                date: docs[0].date,
+                                                date: dateFormat,
                                                 auctionID: docs[0].auctionID,
                                                 auctionState: auctionState.toString(),
+                                                auctionType: auctionType.toString(),
                                                 seatnum: seatnum.toString(),
                                                 time: timelap
                                             };
