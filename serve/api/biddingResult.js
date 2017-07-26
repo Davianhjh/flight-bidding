@@ -180,7 +180,7 @@ router.post('/', function (req, res, next) {
                                             }
                                             else {
                                                 if (docs.length === 0) {
-                                                    console.log(404 + ": auctionID not found in auctionResult");
+                                                    console.log(404 + ": auctionID not found in biddingResult");
                                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                                     res.write(JSON.stringify(resdata));
                                                     res.end();

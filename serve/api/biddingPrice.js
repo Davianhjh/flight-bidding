@@ -291,6 +291,76 @@ router.get('/', function (req, res, next) {
                                                         }
                                                     });
                                                 }
+                                                else if(docs[0].auctionType === 5){
+                                                    biddingResultModel.find({
+                                                        auctionID: auctionid,
+                                                        id: passengerID
+                                                    }, function (err, docs) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                            console.log(500 + ": Server error");
+                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                            res.write(JSON.stringify(resdata));
+                                                            res.end();
+                                                        }
+                                                        else {
+                                                            if (docs.length === 0) {
+                                                                resultData.save(function (err) {
+                                                                    if (err) {
+                                                                        console.log(err);
+                                                                        console.log(500 + ": Server error");
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                    else {
+                                                                        console.log('bidding success');
+                                                                        flightInfoModel.update({
+                                                                            id: passengerID,
+                                                                            auctionID: auctionid
+                                                                        }, {userstatus: 1}, function (err) {
+                                                                            if (err) {
+                                                                                console.log(500 + ": Server error");
+                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                res.write(JSON.stringify(resdata));
+                                                                                res.end();
+                                                                            }
+                                                                            else {
+                                                                                resdata.bid = 1;
+                                                                                resdata.price = price;
+                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                res.write(JSON.stringify(resdata));
+                                                                                res.end();
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                            else {
+                                                                biddingResultModel.update({
+                                                                    auctionID: auctionid,
+                                                                    id: passengerID
+                                                                }, {biddingPrice: price}, function (err) {
+                                                                    if (err) {
+                                                                        console.log(err);
+                                                                        console.log(500 + ": Server error");
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                    else {
+                                                                        resdata.bid = 1;
+                                                                        resdata.price = price;
+                                                                        console.log('bidding success');
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                });
+                                                            }
+                                                        }
+                                                    });
+                                                }
                                             }
                                         }
                                     });

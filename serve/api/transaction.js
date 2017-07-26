@@ -6,6 +6,7 @@ const db = require('../lib/Mymongoose');
 var fs = require('fs');
 var crypto = require('crypto');
 var request = require('request');
+var WxPay = require('./WxPay');
 mongoose.Promise = Promise;
 db.on('error', function(error) {
     console.log(error);
@@ -49,21 +50,25 @@ var AlipayConfig = {
     version:"1.0"
 };
 
-var WxpayConfig = {
-    appid: "wx2421b1c4370ec43b",
+var Wxpay_Config = {
+    appid: "wxd930ea5d5a258f4f",
     attach: "test data",
     body: "Wechat app payment",
     mch_id: "10000100",
     nonce_str: "",
     notify_url: "http://i.wenn.co/generate_204",
     out_trade_no: "",
-    spbill_create_ip: "59.172.176.216",
+    spbill_create_ip: "",
     total_fee: 0,
     trade_type: "APP",
-    sign: ""
+    key: "192006250b4c09247ec02edce69f6a2d"
 };
 
-var WxKey = "192006250b4c09247ec02edce69f6a2d";
+var WxPay_Options = {
+    spbill_create_ip: "",
+    out_trade_no: '',
+    total_fee: 0
+};
 
 var biddingResultSchema = new mongoose.Schema({
     auctionID : { type:String },
@@ -206,17 +211,7 @@ function verifySign(params, sign, algorithm) {
     }
 }
 
-function getNonceStr(){
-    return Math.random().toString(36).substr(2,18);
-}
-
-function MD5Sign(params){
-    var prestr = getParams(params) + "&key=" + WxKey;
-    var sign = crypto.createHash('md5').update(prestr, 'utf8').digest('hex').toUpperCase();
-    return sign;
-}
 var bodyParser = require('body-parser');
-
 var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
@@ -228,6 +223,8 @@ router.post('/',function (req, res, next) {
     var auctionid = req.query.auctionid;
     var method = req.query.method;
     var token = req.headers['agi-token'];
+    //var user_ip = req.headers['x-forward-for'] || req.connection.remoteAddress;
+    var user_ip = req.connection.remoteAddress;
 
     var resdata = {
         result : 1
@@ -351,41 +348,18 @@ router.post('/',function (req, res, next) {
                                             });
                                         }
                                         else if(method === "wxpay"){
-                                            WxpayConfig.nonce_str = getNonceStr();
-                                            WxpayConfig.out_trade_no = auctionid + passengerID;
-                                            WxpayConfig.total_fee = total_amount;
-                                            WxpayConfig.sign = MD5Sign(WxpayConfig);
-                                            var formdata = "<xml>";
-                                            formdata += "<appid>" + WxpayConfig.appid + "</appid>";
-                                            formdata += "<attach>" + WxpayConfig.attach + "</attach>";
-                                            formdata += "<body>" + WxpayConfig.body + "</body>";
-                                            formdata += "<mch_id>" + WxpayConfig.mch_id + "</mch_id>";
-                                            formdata += "<nonce_str>" + WxpayConfig.nonce_str + "</nonce_str>";
-                                            formdata += "<notify_url>" + WxpayConfig.notify_url + "</notify_url>";
-                                            formdata += "<out_trade_no>" + WxpayConfig.out_trade_no + "</out_trade_no>";
-                                            formdata += "<spbill_create_ip>" + WxpayConfig.spbill_create_ip + "</spbill_create_ip>";
-                                            formdata += "<total_fee>" + WxpayConfig.total_fee + "</total_fee>";
-                                            formdata += "<trade_type>" + WxpayConfig.trade_type + "</trade_type>";
-                                            formdata += "<sign>" + WxpayConfig.sign + "</sign>";
-                                            formdata += "</xml>";
-                                            request({
-                                                url: "https://api.mch.weixin.qq.com/pay/unifiedorder",
-                                                method: "POST",
-                                                body: formdata
-                                            },function (err, response, body) {
+                                            var wxpay = new WxPay(Wxpay_Config);
+                                            WxPay_Options.out_trade_no = transactionid;
+                                            WxPay_Options.total_fee = total_amount;
+                                            WxPay_Options.spbill_create_ip = user_ip;
+                                            wxpay.requestPay(WxPay_Options, function (err, result) {
                                                 if(err){
-                                                    console.log(err);
-                                                    console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
+                                                    console.log('ERROR: '+err);
                                                 }
-                                                else {
-                                                    console.log(formdata);
-                                                    console.log(response.statusCode);
-                                                    console.log(body);
-                                                    res.end("end");
-                                                }
+                                                console.log(result);
+                                                //
+                                                // TODO
+                                                //
                                             });
                                         }
                                     }

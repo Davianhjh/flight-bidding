@@ -73,7 +73,7 @@ router.get('/', function (req, res, next) {
                             }
                             else {
                                 if (docs.length === 0) {
-                                    console.log(404+": Flight number is wrong, auction not found");
+                                    console.log(404+": auctionID is wrong, auction not found");
                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                     res.write(JSON.stringify(resdata));
                                     res.end();

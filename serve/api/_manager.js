@@ -8,10 +8,12 @@ var apis = {
     attendantInfo: require('./attendantInfo'),
     bidding: require('./bidding'),
     startAuction: require('./startAuction'),
+    advancedAuction: require('./advancedAuction'),
     timeRemaining: require('./timeRemaining'),
     biddingPrice: require('./biddingPrice'),
     heatLevel: require('./heatLevel'),
     biddingResult: require('./biddingResult'),
+    advancedAuctionResult: require('./advancedAuctionResult'),
     setPaid: require('./setPaid'),
     transaction: require('./transaction'),
     expChart: require('./expChart')

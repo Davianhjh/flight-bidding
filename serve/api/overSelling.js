@@ -25,12 +25,15 @@ var flightInfoSchema = new mongoose.Schema({
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
 
-var auctionParamSchema = new mongoose.Schema({
-    auctionID: { type:String },
-    auctionState: { type:Number },
-    auctionType: { type:Number }
-},{collection:"auctionParam"});
-var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
+var auctionFlightManageSchema = new mongoose.Schema({
+    flight: { type:String },
+    date: { type:String },
+    auctionType: { type:Number },
+    baseprice: { type:Number },
+    auctionID: { type:Number},
+    auctionState: { type: Number}
+},{collection:"auctionFlightManage"});
+var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
 var userTokenSchema = new mongoose.Schema({
     Token: {type: String}
@@ -82,12 +85,10 @@ router.get('/', function (req, res, next) {
                     }
                     else {
                         passengerID = decoded.id;
-                        var flightArray = ["HU7803"];
                         var nowDate = new Date();
                         var dateStr = nowDate.getFullYear() + zeroFill(nowDate.getMonth() + 1) + zeroFill(nowDate.getDate());
 
                         flightInfoModel.find({id: passengerID, date: dateStr})
-                            .where("flight").in(flightArray)
                             .exec(function (error, docs) {
                             if (error) {
                                 console.log(error);
@@ -98,57 +99,65 @@ router.get('/', function (req, res, next) {
                             }
                             else {
                                 if (docs.length === 0) {
-                                    console.log(404 + ": Passenger not having an overselling flight");
+                                    console.log(404 + ": Passenger not exist on today's flight");
                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                     res.write(JSON.stringify(resdata));
                                     res.end();
                                 }
                                 else {
                                     var flights = [];
-                                    var auctionflights = [];
-                                    for (var i = 0; i < docs.length; i++)
-                                        auctionflights.push(docs[i].auctionID);
-                                    auctionParamModel.find({auctionID: {$in: auctionflights}}, function (err, lists) {
-                                        if (err) {
-                                            console.log(error);
-                                            console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
-                                        else {
-                                            for (var i = 0; i < docs.length; i++) {
-                                                var auctionState = -1;
-                                                var auctionType = -1;
-                                                for (var j = 0; j < lists.length; j++) {
-                                                    if (docs[i].auctionID === lists[j].auctionID) {
-                                                        auctionState = lists[j].auctionState;
-                                                        auctionType = lists[j].auctionType;
-                                                        break;
-                                                    }
-                                                }
-                                                var flightData = {
-                                                    flightno: docs[i].flight,
-                                                    ticketno: docs[i].ticketnum,
-                                                    date: docs[i].date,
-                                                    userstatus: docs[i].userstatus,
-                                                    auctionID: docs[i].auctionID,
-                                                    auctionState: auctionState,
-                                                    auctionType: auctionType,
-                                                    departure: docs[i].origin,
-                                                    departurecode: docs[i].O_code,
-                                                    arrival: docs[i].destination,
-                                                    arrivalcode: docs[i].D_code
-                                                };
-                                                flights.push(flightData);
+                                    var flightArray = [];
+                                    for(var k = 0; k < docs.length; k++){
+                                        flightArray.push(docs[k].flight)
+                                    }
+                                    auctionFlightManageModel.find({date:dateStr})
+                                        .where("flight").in(flightArray)
+                                        .where("auctionType").in([4])
+                                        .exec(function (err, lists) {
+                                            if(err){
+                                                console.log(error);
+                                                console.log(500 + ": Server error");
+                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                res.write(JSON.stringify(resdata));
+                                                res.end();
                                             }
-                                            resdata.result = 1;
-                                            resdata.flights = flights;
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
-                                    });
+                                            else {
+                                                if(lists.length === 0){
+                                                    resdata.flights = flights;
+                                                    console.log("passenger have no overselling flights today");
+                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                    res.write(JSON.stringify(resdata));
+                                                    res.end();
+                                                }
+                                                else {
+                                                    for(var i=0; i < lists.length; i++){
+                                                        for(var j=0; j < docs.length; j++){
+                                                            if(lists[i].flight === docs[j].flight){
+                                                                var flightData = {
+                                                                    flightno: docs[j].flight,
+                                                                    ticketno: docs[j].ticketnum,
+                                                                    date: docs[j].date,
+                                                                    userstatus: docs[j].userstatus,
+                                                                    auctionID: lists[i].auctionID,
+                                                                    auctionState: lists[i].auctionState,
+                                                                    auctionType: lists[i].auctionType,
+                                                                    departure: docs[j].origin,
+                                                                    departurecode: docs[j].O_code,
+                                                                    arrival: docs[j].destination,
+                                                                    arrivalcode: docs[j].D_code
+                                                                };
+                                                                break;
+                                                            }
+                                                        }
+                                                        flights.push(flightData);
+                                                    }
+                                                    resdata.flights = flights;
+                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                    res.write(JSON.stringify(resdata));
+                                                    res.end();
+                                                }
+                                            }
+                                        });
                                 }
                             }
                         });

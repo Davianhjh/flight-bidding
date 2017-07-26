@@ -22,6 +22,14 @@ var auctionParamSchema = new mongoose.Schema({
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
+var auctionFlightManageSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    auctionType: { type:Number },
+    auctionState: { type:Number },
+    seatnum: { type:Number }
+},{collection:"auctionFlightManage"});
+var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
+
 var serverTokenSchema = new mongoose.Schema({
     Token: { type:String }
 },{collection:"serverToken"});
@@ -33,9 +41,7 @@ var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
-var BASEPRICE = 512;
 var TIMELAP = 180;              //timeLap here's to change
-var AUCTIONTYPE = 1;
 
 router.post('/', function (req, res, next) {
     var attendantID = "";
@@ -79,78 +85,93 @@ router.post('/', function (req, res, next) {
                     }
                     else {
                         attendantID = decoded.id;
-                        if (flight === "CZ6605")
-                            AUCTIONTYPE = 1;
-                        else if (flight === "HU7187")
-                            AUCTIONTYPE = 3;
-
-                        else if (flight === "HU7803")
-                            AUCTIONTYPE = 4;
-                        var startTime = Date.parse(new Date());
-                        var auctionData = new auctionParamModel({
-                            "auctionID": auctionid,
-                            "flight": flight,
-                            "attentantUUID": attendantID,
-                            "baseprice": BASEPRICE,
-                            "timelap": TIMELAP,
-                            "seatnum": seatnum,
-                            "startTime": startTime,
-                            "auctionType": AUCTIONTYPE,
-                            "auctionState": 1,
-                            "count": 0
-                        });
-
-                        auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
-                            if (error) {
-                                console.log(error);
-                                console.log(500 + ": Server error");
+                        auctionFlightManageModel.findOneAndUpdate({auctionID:auctionid}, {$set: {seatnum:seatnum, auctionState:1}}, {new:false}, function (err, lists) {
+                            if(err){
+                               console.log(err);
+                               console.log(500 + ": Server error");
+                               res.writeHead(200, {'Content-Type': 'application/json'});
+                               res.write(JSON.stringify(resdata));
+                               res.end();
+                           }
+                           else if (typeof(auctionid) === "undefined" || lists === null) {
+                                console.log(403 + ": auctionID invalid params error");
                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                 res.write(JSON.stringify(resdata));
                                 res.end();
-                            }
-                            else {
-                                if (typeof(auctionid) === "undefined") {
-                                    console.log(403 + ": auctionID invalid params error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else if (docs.length === 0) {
-                                    auctionData.save(function (err) {
-                                        if (err) {
-                                            console.log(err);
-                                            console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
-                                        else {
-                                            console.log('save success');
-                                            resdata.auction = 1;
-                                            resdata.timelap = TIMELAP;
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                return;
+                           }
+                           else {
+                               var auctionType = lists.auctionType;
+                               var baseprice = lists.baseprice;
+                               //var timelap = lists[0].timelap;
+                               var startTime = Date.parse(new Date());
+                               var auctionData = new auctionParamModel({
+                                   "auctionID": auctionid,
+                                   "flight": flight,
+                                   "attentantUUID": attendantID,
+                                   "baseprice": baseprice,
+                                   "timelap": TIMELAP,
+                                   "seatnum": seatnum,
+                                   "startTime": startTime,
+                                   "auctionType": auctionType,
+                                   "auctionState": 1,
+                                   "count": 0
+                               });
 
-                                            var updateState = function () {
-                                                return auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                    if (err)
-                                                        console.log(err);
-                                                    else console.log('update auctionState to 2');
-                                                });
-                                            };
-                                            setTimeout(updateState, TIMELAP * 1000);
+                               auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
+                                   if (error) {
+                                       console.log(error);
+                                       console.log(500 + ": Server error");
+                                       res.writeHead(200, {'Content-Type': 'application/json'});
+                                       res.write(JSON.stringify(resdata));
+                                       res.end();
+                                   }
+                                   else {
+                                       if (docs.length === 0) {
+                                           auctionData.save(function (err) {
+                                               if (err) {
+                                                   console.log(err);
+                                                   console.log(500 + ": Server error");
+                                                   res.writeHead(200, {'Content-Type': 'application/json'});
+                                                   res.write(JSON.stringify(resdata));
+                                                   res.end();
+                                               }
+                                               else {
+                                                   console.log('save success');
+                                                   resdata.auction = 1;
+                                                   resdata.timelap = TIMELAP;
+                                                   res.writeHead(200, {'Content-Type': 'application/json'});
+                                                   res.write(JSON.stringify(resdata));
 
-                                            res.end();
-                                        }
-                                    });
-                                }
-                                else {
-                                    console.log(403 + ': repeated auction id save failure');
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                            }
+                                                   var updateState = function () {
+                                                       return auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                           if (err)
+                                                               console.log(err);
+                                                           else {
+                                                               auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                   if(error)
+                                                                       console.log(error);
+                                                                   else
+                                                                       console.log('update auctionState to 2');
+                                                               });
+                                                           }
+                                                       });
+                                                   };
+                                                   setTimeout(updateState, TIMELAP * 1000);
+
+                                                   res.end();
+                                               }
+                                           });
+                                       }
+                                       else {
+                                           console.log(403 + ': repeated auction id save failure');
+                                           res.writeHead(200, {'Content-Type': 'application/json'});
+                                           res.write(JSON.stringify(resdata));
+                                           res.end();
+                                       }
+                                   }
+                               });
+                           }
                         });
                     }
                 });
