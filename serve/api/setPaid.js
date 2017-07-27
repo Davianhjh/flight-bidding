@@ -92,13 +92,19 @@ router.post('/', function (req, res, next) {
                                 }
                                 else {
                                     var id = docs[0].id;
-                                    biddingResultModel.update({
+                                    biddingResultModel.findOneAndUpdate({
                                         auctionID: auctionid,
                                         id: id
-                                    }, {paymentState: true}, function (err) {
+                                    }, {$set: {paymentState: true}}, function (err, docs) {
                                         if (err) {
                                             console.log(err);
                                             console.log(500 + ": Server error");
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                        else if(docs === null){
+                                            console.log(404 + ": the passenger didn't bid for a price");
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));
                                             res.end();

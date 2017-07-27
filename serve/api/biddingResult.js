@@ -248,7 +248,8 @@ router.get('/',function (req, res, next) {
         rank: -1,
         seats: -1,
         hit: 0,
-        price: -1
+        price: -1,
+        paid: false
     };
     userTokenModel.find({Token:token}, function (err, docs) {
         if (err) {

@@ -7,7 +7,7 @@ mongoose.Promise = Promise;
 db.on('error', function(error) {
     console.log(error);
 });
-
+/*
 var Alidayu = require('./Alidayu');
 var Text_Config = {
     AccessKeyId: '23300111',   //needed to be changed
@@ -25,6 +25,14 @@ var Text_options = {
     TemplateCode: 'SMS_4725038',  // needed to be changed
     OutId: '83db305a-70e9-11e7-86c0-484d7ec4298c' // needed to be changed
 };
+*/
+var Wangyiyun = require('./Wangyiyun');
+var Wangyi_Config = {
+    AppKey: "888e5c9cee83a47f5365744a12ec1c83",
+    AppSecret: "9ad8ea5e3441"
+};
+
+var wangyi = new Wangyiyun(Wangyi_Config);
 
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
@@ -100,6 +108,14 @@ router.get('/', function (req, res, next) {
         result: 1,
         auction: -1,
         timelap: TIMELAP
+    };
+
+    var Wangyiyun_Options = {
+        templateid: "3061769",
+        mobiles: "",
+        name: "",
+        flight: "",
+        price: ""
     };
 
     auctionFlightManageModel.findOneAndUpdate({auctionID:auctionid,auctionType:5}, {$set: {seatnum:seatnum, auctionState:1}}, {new:false}, function (err, lists) {
@@ -234,11 +250,12 @@ router.get('/', function (req, res, next) {
                                                                     }
                                                                     // texting APIs (passenger)
                                                                     //
-                                                                    lists.forEach(function (doc, index) {
-                                                                        Text_options.PhoneNumbers = index.tel;
-                                                                        Text_options.TemplateParam.flight = index.flight;
-                                                                        Text_options.TemplateParam.name = index.name;
-                                                                        alidayu.sms(options,function(err,result){
+                                                                    passenger.forEach(function (doc, index) {
+                                                                        Wangyiyun_Options.mobiles = doc.tel;
+                                                                        Wangyiyun_Options.flight = doc.flight;
+                                                                        Wangyiyun_Options.name = doc.name;
+                                                                        Wangyiyun_Options.price = doc.price;
+                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
                                                                             if(err){
                                                                                 console.log('ERROR'+err);
                                                                             }
@@ -317,11 +334,12 @@ router.get('/', function (req, res, next) {
                                                                         }
                                                                         // texting APIs (passenger)
                                                                         //
-                                                                        lists.forEach(function (doc, index) {
-                                                                            Text_options.PhoneNumbers = index.tel;
-                                                                            Text_options.TemplateParam.flight = index.flight;
-                                                                            Text_options.TemplateParam.name = index.name;
-                                                                            alidayu.sms(options,function(err,result){
+                                                                        passenger.forEach(function (doc, index) {
+                                                                            Wangyiyun_Options.mobiles = doc.tel;
+                                                                            Wangyiyun_Options.flight = doc.flight;
+                                                                            Wangyiyun_Options.name = doc.name;
+                                                                            Wangyiyun_Options.price = doc.price;
+                                                                            wangyi.text(Wangyiyun_Options,function(err,result){
                                                                                 if(err){
                                                                                     console.log('ERROR'+err);
                                                                                 }
@@ -392,11 +410,12 @@ router.get('/', function (req, res, next) {
                                                                         }
                                                                         // texting APIs (passenger)
                                                                         //
-                                                                        lists.forEach(function (doc, index) {
-                                                                            Text_options.PhoneNumbers = index.tel;
-                                                                            Text_options.TemplateParam.flight = index.flight;
-                                                                            Text_options.TemplateParam.name = index.name;
-                                                                            alidayu.sms(options,function(err,result){
+                                                                        passenger.forEach(function (doc, index) {
+                                                                            Wangyiyun_Options.mobiles = doc.tel;
+                                                                            Wangyiyun_Options.flight = doc.flight;
+                                                                            Wangyiyun_Options.name = doc.name;
+                                                                            Wangyiyun_Options.price = doc.price;
+                                                                            wangyi.text(Wangyiyun_Options,function(err,result){
                                                                                 if(err){
                                                                                     console.log('ERROR'+err);
                                                                                 }
