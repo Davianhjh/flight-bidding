@@ -17,7 +17,7 @@ var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingR
 
 var flightInfoSchema = new mongoose.Schema({
     id: { type:String },
-    auctionID: { type: String },
+    flight: { type: String },
     name: { type:String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
@@ -75,7 +75,7 @@ router.post('/', function (req, res, next) {
                     else {
                         attendantID = decoded.id;
 
-                        flightInfoModel.find({name: name, auctionID: auctionid}, function (err, docs) {
+                        flightInfoModel.find({name: name, flight:flight}, function (err, docs) {
                             if (err) {
                                 console.log(err);
                                 console.log(500 + ": Server error");

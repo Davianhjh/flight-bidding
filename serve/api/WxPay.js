@@ -40,7 +40,7 @@ WxPay.prototype._merge = function (object, source) {
 
 WxPay.prototype._sign = function (key, args) {
     args = this._merge(this._opt, args);
-    args.nonce_str = 'vjxrrrru4b1qa894gm';
+    args.nonce_str = getNonceStr();
     var arr = Object.keys(args).sort();
     console.log(args);
 

@@ -38,7 +38,8 @@ var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionPara
 
 var flightInfoSchema = new mongoose.Schema({
     id: { type:String },
-    auctionID: { type: String },
+    date: { type:String },
+    flight: { type:String },
     seat: { type:String },
     userstatus: { type: Number }
 },{collection:"flightInfo"});
@@ -57,6 +58,7 @@ router.get('/', function (req, res, next) {
     var flight = req.query.flight;
     var auctionid = req.query.auctionid;
     var price = req.query.price;
+    var date = req.query.date;
     var token = req.headers['agi-token'];
     var resdata = {
         result: 1,
@@ -95,7 +97,7 @@ router.get('/', function (req, res, next) {
                     else {
                         passengerID = decoded.id;
 
-                        flightInfoModel.find({id: passengerID}, function (err, docs) {
+                        flightInfoModel.find({id: passengerID, flight: flight}, function (err, docs) {
                             if (err) {
                                 console.log(err);
                                 console.log(500 + ": Server error");
@@ -168,7 +170,8 @@ router.get('/', function (req, res, next) {
                                                                         console.log('bidding success');
                                                                         flightInfoModel.update({
                                                                             id: passengerID,
-                                                                            auctionID: auctionid
+                                                                            flight: flight,
+                                                                            date: date
                                                                         }, {userstatus: 1}, function (err) {
                                                                             if (err) {
                                                                                 console.log(500 + ": Server error");
@@ -221,7 +224,8 @@ router.get('/', function (req, res, next) {
                                                                     else {
                                                                         flightInfoModel.update({
                                                                             id: passengerID,
-                                                                            auctionID: auctionid
+                                                                            flight: flight,
+                                                                            date: date
                                                                         }, {userstatus: 1}, function (err) {
                                                                             if (err) {
                                                                                 console.log(500 + ": Server error");
@@ -317,7 +321,8 @@ router.get('/', function (req, res, next) {
                                                                         console.log('bidding success');
                                                                         flightInfoModel.update({
                                                                             id: passengerID,
-                                                                            auctionID: auctionid
+                                                                            flight: flight,
+                                                                            date: date
                                                                         }, {userstatus: 1}, function (err) {
                                                                             if (err) {
                                                                                 console.log(500 + ": Server error");

@@ -9,7 +9,8 @@ db.on('error', function(error) {
 });
 
 var flightInfoSchema = new mongoose.Schema({
-    auctionID: { type:String },
+    flight: { type:String },
+    date: { type:String },
     id: { type:String },
     userstatus: { type:Number },
     auctionState: { type:Number }
@@ -41,6 +42,7 @@ router.get('/', function (req, res, next) {
     var action = req.query.action;
     var flight = req.query.flight;
     var auctionid = req.query.auctionid;
+    var date = req.query.date;
     var token = req.headers['agi-token'];
 
     var resdata = {
@@ -80,7 +82,7 @@ router.get('/', function (req, res, next) {
 
                         if (action === "status") {
                             var userstatus = -1;
-                            flightInfoModel.find({id: passengerID, auctionID: auctionid}, function (error, docs) {
+                            flightInfoModel.find({id: passengerID, flight: flight, date: date}, function (error, docs) {
                                 if (error) {
                                     console.log(error);
                                     console.log(500 + ": Server error");
@@ -145,7 +147,7 @@ router.get('/', function (req, res, next) {
                         }
 
                         else if (action === "agree") {
-                            flightInfoModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
+                            flightInfoModel.find({id: passengerID, flight: flight, date: date}, function (err, docs) {
                                 if (err) {
                                     console.log(500 + ": Server error");
                                     res.writeHead(200, {'Content-Type': 'application/json'});

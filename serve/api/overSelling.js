@@ -20,8 +20,7 @@ var flightInfoSchema = new mongoose.Schema({
     D_code: { type:String },
     date: { type:String },
     userstatus: { type: Number },
-    ticketnum: { type: String },
-    auctionID: { type: String }
+    ticketnum: { type: String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
 
