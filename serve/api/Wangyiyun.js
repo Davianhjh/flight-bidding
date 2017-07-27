@@ -37,8 +37,6 @@ function Wangyiyun(opt) {
     for (var key in opt) {
         this._opt[key] = opt[key];
     }
-    console.log(this._opt.AppKey);
-    console.log(this._opt.AppSecret);
 }
 
 Wangyiyun.prototype._merge = function (object, source) {
