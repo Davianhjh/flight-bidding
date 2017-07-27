@@ -3,7 +3,7 @@
  */
 const mongoose = require('mongoose');
 mongoose.Promise = Promise;
-var db = mongoose.createConnection('mongodb://172.10.0.141:27017/flight-bidding');
+var db = mongoose.createConnection('mongodb://localhost:27017/flight-bidding');
 db.on('error', function(error) {
     console.log(error);
 });

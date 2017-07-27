@@ -168,7 +168,8 @@ router.get('/', function (req, res, next) {
                                     else {
                                         flightInfoModel.update({
                                             id: passengerID,
-                                            auctionID: auctionid
+                                            flight: flight,
+                                            date: date
                                         }, {userstatus: 0}, function (err) {
                                             if (err) {
                                                 console.log(500 + ": Server error");
