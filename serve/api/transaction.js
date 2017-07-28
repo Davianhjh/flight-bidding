@@ -165,7 +165,7 @@ function getParams(params) {
 
 function getSign(params) {
     try {
-        var privatePem = fs.readFileSync('/home/hujinhua/flight-updating-server/private.pem');
+        var privatePem = fs.readFileSync('/home/agiview/Documents/flight-bidding/private.pem');
         var key = privatePem.toString();
         var prestr = getParams(params);
         var mysign = crypto.createSign('RSA-SHA256');
@@ -201,7 +201,7 @@ function getVerifyParams(params) {
 
 function verifySign(params, sign, algorithm) {
     try {
-        var publicPem = fs.readFileSync('/home/hujinhua/flight-updating-server/Alipay_public.pem');
+        var publicPem = fs.readFileSync('/home/agiview/Documents/flight-bidding/Alipay_public.pem');
         var publicKey = publicPem.toString();
         var prestr = getVerifyParams(params);
         var verify = crypto.createVerify(algorithm);
