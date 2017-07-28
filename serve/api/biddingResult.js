@@ -324,7 +324,9 @@ router.get('/',function (req, res, next) {
                                                             resdata.rank = result;
                                                             resdata.price = docs[i].biddingPrice;
                                                             resdata.paid = docs[i].paymentState;
-                                                            if (auctionType === 2 && i < seatnum && i < docs.length)
+                                                            if (auctionType === 2 && i < seatnum && i < docs.length && docs.length === seatnum)
+                                                                paymentPrice = docs[seatnum-1].biddingPrice;
+                                                            else if (auctionType === 2 && i < seatnum && i < docs.length)
                                                                 paymentPrice = docs[Math.min(seatnum, docs.length)].biddingPrice;
                                                         }
                                                     }
