@@ -198,7 +198,7 @@ router.get('/', function (req, res, next) {
                                                     else {
                                                         console.log("today's total number of bidding is " + arr.length);
                                                         for(var m=0;m<arr.length;m++){
-                                                            candidateID.push(arr[i].id);
+                                                            candidateID.push(arr[m].id);
                                                         }
                                                         console.log("the candidates: " + candidateID);
 
