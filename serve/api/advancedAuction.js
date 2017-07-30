@@ -271,7 +271,7 @@ router.get('/', function (req, res, next) {
                                                                                 console.log(passenger);
                                                                                 console.log("finish texting all winners");
 
-                                                                                failure = candidateID.slice(docs.length);
+                                                                                failure = candidateID.slice(seat);
                                                                                 console.log(failure);
                                                                                 console.log("finish sending all failures");
 
