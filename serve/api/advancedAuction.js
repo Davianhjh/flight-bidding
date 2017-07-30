@@ -200,8 +200,6 @@ router.get('/', function (req, res, next) {
                                             var seat = doc[0].seatnum;
                                             var startTime = doc[0].startTime;   // added
                                             biddingResultModel.find({auctionID: auctionid})
-                                                //.where("biddingPrice").gte(BASEPRICE)
-                                                .where("id").nin(candidateID)
                                                 .where("biddingTime").gte(startTime)                    // added
                                                 .where("biddingTime").lt(startTime + TIMELAP*1000)      // added
                                                 .sort({biddingPrice:-1})
@@ -223,8 +221,10 @@ router.get('/', function (req, res, next) {
                                                         }
                                                         console.log(candidateID);
 
-                                                        docs.find()
+                                                        biddingResultModel.find({auctionID: auctionid})
                                                             .where("biddingPrice").gte(BASEPRICE)
+                                                            .where("biddingTime").gte(startTime)                    // added
+                                                            .where("biddingTime").lt(startTime + TIMELAP*1000)      // added
                                                             .sort({biddingPrice:-1})
                                                             .exec(function (err, arr) {
                                                                 if(err){
