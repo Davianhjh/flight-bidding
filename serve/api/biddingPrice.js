@@ -14,6 +14,7 @@ var biddingResultSchema = new mongoose.Schema({
     flight: { type:String },
     seat: { type:String },
     biddingPrice: { type:Number },
+    biddingTime: { type:Number },    //added
     paymentState: { type:Boolean },
     paymentPrice: { type:Number }
 },{collection:"biddingResult"});
@@ -119,6 +120,7 @@ router.get('/', function (req, res, next) {
                                         flight: flight,
                                         seat: docs[0].seat,
                                         biddingPrice: price,
+                                        biddingTime: Date.parse(new Date()),    //added
                                         paymentState: false,
                                         paymentPrice: 0
                                     });
