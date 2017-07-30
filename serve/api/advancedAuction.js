@@ -271,7 +271,7 @@ router.get('/', function (req, res, next) {
                                                                                 console.log(passenger);
                                                                                 console.log("finish texting all winners");
 
-                                                                                failure = candidate.slice(docs.length);
+                                                                                failure = candidateID.slice(docs.length);
                                                                                 console.log(failure);
                                                                                 console.log("finish sending all failures");
 
@@ -357,7 +357,7 @@ router.get('/', function (req, res, next) {
                                                                                     console.log(passenger);
                                                                                     console.log("finish texting all winners");
 
-                                                                                    failure = candidate.slice(docs.length);
+                                                                                    failure = candidateID.slice(docs.length);
                                                                                     console.log(failure);
                                                                                     console.log("finish sending all failures");
 
@@ -437,7 +437,7 @@ router.get('/', function (req, res, next) {
                                                                                     console.log(passenger);
                                                                                     console.log("finish texting " + passenger.length + " winners on Day " + day_count);
 
-                                                                                    failure = candidate.slice(docs.length);
+                                                                                    failure = candidateID.slice(docs.length);
                                                                                     console.log(failure);
                                                                                     console.log("finish sending all failures");
 
