@@ -7,25 +7,36 @@ mongoose.Promise = Promise;
 db.on('error', function(error) {
     console.log(error);
 });
-/*
-var Alidayu = require('./Alidayu');
-var Text_Config = {
-    AccessKeyId: '23300111',   //needed to be changed
-    AccessSecret: '3403636b338e1003999dd946111111'   //needed to be changed
+
+var Wangyiyun = require('./Wangyiyun');
+var Wangyi_Config = {
+    AppKey: "888e5c9cee83a47f5365744a12ec1c83",
+    AppSecret: "9ad8ea5e3441"
 };
 
-var alidayu = new Alidayu(Text_Config);
-var Text_options = {
-    SignName: '身份验证',
-    TemplateParam: {
-        name: '',
-        flight: ''
-    },
-    PhoneNumbers: '',
-    TemplateCode: 'SMS_4725038',  // needed to be changed
-    OutId: '83db305a-70e9-11e7-86c0-484d7ec4298c' // needed to be changed
-};
-*/
+var wangyi = new Wangyiyun(Wangyi_Config);
+
+/*
+ var Alidayu = require('./Alidayu');
+ var Text_Config = {
+ AccessKeyId: '23300111',   //needed to be changed
+ AccessSecret: '3403636b338e1003999dd946111111'   //needed to be changed
+ };
+
+ var alidayu = new Alidayu(Text_Config);
+ var Alidayu_options = {
+ SignName: 'flight auction wins',
+ TemplateParam: {
+ name: '',
+ flight: '',
+ price: ''
+ },
+ PhoneNumbers: '',
+ TemplateCode: 'SMS_4725038',  // needed to be changed
+ OutId: '83db305a-70e9-11e7-86c0-484d7ec4298c' // needed to be changed
+ };
+ */
+
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     flight : { type:String },
@@ -100,6 +111,14 @@ router.get('/', function (req, res, next) {
         result: 1,
         auction: -1,
         timelap: TIMELAP
+    };
+
+    var Wangyiyun_Options = {
+        templateid: "3061769",
+        mobiles: "",
+        name: "",
+        flight: "",
+        price: ""
     };
 
     auctionFlightManageModel.findOneAndUpdate({auctionID:auctionid,auctionType:AUCTIONTYPE}, {$set: {seatnum:seatnum, auctionState:1}}, {new:false}, function (err, lists) {
@@ -182,7 +201,7 @@ router.get('/', function (req, res, next) {
                                             var seat = doc[0].seatnum;
                                             var candidateID = [];
                                             biddingResultModel.find({auctionID: auctionid})
-                                                //.where("biddingPrice").gte(BASEPRICE)
+                                            //.where("biddingPrice").gte(BASEPRICE)
                                                 .where("biddingTime").gte(doc[0].startTime)
                                                 .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
                                                 .sort({biddingPrice:-1})
@@ -255,22 +274,34 @@ router.get('/', function (req, res, next) {
                                                                                     }
                                                                                 }
                                                                                 // texting APIs (passenger)
-                                                                                /*
-                                                                                lists.forEach(function (doc, index) {
-                                                                                    Text_options.PhoneNumbers = index.tel;
-                                                                                    Text_options.TemplateParam.flight = index.flight;
-                                                                                    Text_options.TemplateParam.name = index.name;
-                                                                                    alidayu.sms(options,function(err,result){
+                                                                                passenger.forEach(function (doc, index) {
+                                                                                    Wangyiyun_Options.mobiles = doc.tel;
+                                                                                    Wangyiyun_Options.flight = doc.flight;
+                                                                                    Wangyiyun_Options.name = doc.name;
+                                                                                    Wangyiyun_Options.price = doc.price;
+                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
                                                                                         if(err){
                                                                                             console.log('ERROR'+err);
                                                                                         }
                                                                                         console.log(result);
                                                                                     });
                                                                                 });
-                                                                                */
-                                                                                console.log(passenger);
                                                                                 console.log("finish texting all winners");
-
+                                                                                /*
+                                                                                 passenger.forEach(function (doc, index) {
+                                                                                 Alidayu_options.PhoneNumbers = index.tel;
+                                                                                 Alidayu_options.TemplateParam.flight = index.flight;
+                                                                                 Alidayu_options.TemplateParam.name = index.name;
+                                                                                 Alidayu_options.TemplateParam.price = index.price;
+                                                                                 alidayu.sms(options,function(err,result){
+                                                                                 if(err){
+                                                                                 console.log('ERROR'+err);
+                                                                                 }
+                                                                                 console.log(result);
+                                                                                 });
+                                                                                 });
+                                                                                 */
+                                                                                // APP sending APIs
                                                                                 failure = candidateID.slice(seat);
                                                                                 console.log(failure);
                                                                                 console.log("finish sending all failures");
@@ -341,22 +372,34 @@ router.get('/', function (req, res, next) {
                                                                                         }
                                                                                     }
                                                                                     // texting APIs (passenger)
-                                                                                    /*
-                                                                                    lists.forEach(function (doc, index) {
-                                                                                        Text_options.PhoneNumbers = index.tel;
-                                                                                        Text_options.TemplateParam.flight = index.flight;
-                                                                                        Text_options.TemplateParam.name = index.name;
-                                                                                        alidayu.sms(options,function(err,result){
+                                                                                    passenger.forEach(function (doc, index) {
+                                                                                        Wangyiyun_Options.mobiles = doc.tel;
+                                                                                        Wangyiyun_Options.flight = doc.flight;
+                                                                                        Wangyiyun_Options.name = doc.name;
+                                                                                        Wangyiyun_Options.price = doc.price;
+                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
                                                                                             if(err){
                                                                                                 console.log('ERROR'+err);
                                                                                             }
                                                                                             console.log(result);
                                                                                         });
                                                                                     });
-                                                                                    */
-                                                                                    console.log(passenger);
                                                                                     console.log("finish texting all winners");
-
+                                                                                    /*
+                                                                                     passenger.forEach(function (doc, index) {
+                                                                                     Alidayu_options.PhoneNumbers = index.tel;
+                                                                                     Alidayu_options.TemplateParam.flight = index.flight;
+                                                                                     Alidayu_options.TemplateParam.name = index.name;
+                                                                                     Alidayu_options.TemplateParam.price = index.price;
+                                                                                     alidayu.sms(options,function(err,result){
+                                                                                     if(err){
+                                                                                     console.log('ERROR'+err);
+                                                                                     }
+                                                                                     console.log(result);
+                                                                                     });
+                                                                                     });
+                                                                                     */
+                                                                                    // APP sending APIs
                                                                                     failure = candidateID.slice(docs.length);
                                                                                     console.log(failure);
                                                                                     console.log("finish sending all failures");
@@ -420,23 +463,35 @@ router.get('/', function (req, res, next) {
                                                                                             }
                                                                                         }
                                                                                     }
-                                                                                    // texting APIs (passenger)
-                                                                                    /*
-                                                                                    lists.forEach(function (doc, index) {
-                                                                                        Text_options.PhoneNumbers = index.tel;
-                                                                                        Text_options.TemplateParam.flight = index.flight;
-                                                                                        Text_options.TemplateParam.name = index.name;
-                                                                                        alidayu.sms(options,function(err,result){
+                                                                                    passenger.forEach(function (doc, index) {
+                                                                                        Wangyiyun_Options.mobiles = doc.tel;
+                                                                                        Wangyiyun_Options.flight = doc.flight;
+                                                                                        Wangyiyun_Options.name = doc.name;
+                                                                                        Wangyiyun_Options.price = doc.price;
+                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
                                                                                             if(err){
                                                                                                 console.log('ERROR'+err);
                                                                                             }
                                                                                             console.log(result);
                                                                                         });
                                                                                     });
-                                                                                    */
-                                                                                    console.log(passenger);
                                                                                     console.log("finish texting " + passenger.length + " winners on Day " + day_count);
 
+                                                                                    /*
+                                                                                     passenger.forEach(function (doc, index) {
+                                                                                     Alidayu_options.PhoneNumbers = index.tel;
+                                                                                     Alidayu_options.TemplateParam.flight = index.flight;
+                                                                                     Alidayu_options.TemplateParam.name = index.name;
+                                                                                     Alidayu_options.TemplateParam.price = index.price;
+                                                                                     alidayu.sms(options,function(err,result){
+                                                                                     if(err){
+                                                                                     console.log('ERROR'+err);
+                                                                                     }
+                                                                                     console.log(result);
+                                                                                     });
+                                                                                     });
+                                                                                     */
+                                                                                    // APP sending APIs
                                                                                     failure = candidateID.slice(docs.length);
                                                                                     console.log(failure);
                                                                                     console.log("finish sending all failures");
