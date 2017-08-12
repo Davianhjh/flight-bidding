@@ -1,8 +1,11 @@
 var express = require('express');
-var apis = require('./serve/api/_manager');
-
 var app = express();
 
-apis.register(app);
+// Render Less
+require("./static/style/cssGenerator");
+
+// Router
+var router = require('./router');
+router.bind(app);
 
 module.exports = app;

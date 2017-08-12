@@ -112,6 +112,8 @@ router.post('/', function (req, res, next) {
                                 else {
                                     var seatnum = docs[0].seatnum;
                                     var auctionType = docs[0].auctionType;
+                                    var candidateID = [];
+                                    var winner = [];
                                     if(auctionType !== 4) {
                                         biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
                                             if (err) {
@@ -129,11 +131,12 @@ router.post('/', function (req, res, next) {
                                                     res.end();
                                                 }
                                                 else {
-                                                    var flight = docs[0].flight;
-                                                    var candidateID = [];
-                                                    for (var i = 0; i < seatnum && i < docs.length; i++)
+                                                    for (var i = 0; i < docs.length; i++) {
+                                                        if(i < seatnum)
+                                                            winner.push(docs[i].id);
                                                         candidateID.push(docs[i].id);
-                                                    flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
+                                                    }
+                                                    flightInfoModel.find({id: {$in: winner}}, function (err, lists) {
                                                         if (err) {
                                                             console.log(err);
                                                             console.log(500 + ": Server error");
@@ -146,6 +149,7 @@ router.post('/', function (req, res, next) {
                                                                 for (var j = 0; j < lists.length; j++) {
                                                                     if (docs[i].id === lists[j].id) {
                                                                         candidate = {
+                                                                            id: lists[j].id,
                                                                             name: lists[j].name,
                                                                             tel: lists[j].tel,
                                                                             seat: docs[i].seat,
@@ -186,10 +190,11 @@ router.post('/', function (req, res, next) {
                                                     res.end();
                                                 }
                                                 else {
-                                                    var flight = docs[0].flight;
-                                                    var candidateID = [];
-                                                    for (var i = 0; i < seatnum && i < docs.length; i++)
+                                                    for (var i = 0; i < docs.length; i++) {
+                                                        if(i < seatnum)
+                                                            winner.push(docs[i].id);
                                                         candidateID.push(docs[i].id);
+                                                    }
                                                     flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
                                                         if (err) {
                                                             console.log(err);
@@ -203,6 +208,7 @@ router.post('/', function (req, res, next) {
                                                                 for (var j = 0; j < lists.length; j++) {
                                                                     if (docs[i].id === lists[j].id) {
                                                                         candidate = {
+                                                                            id: lists[j].id,
                                                                             name: lists[j].name,
                                                                             tel: lists[j].tel,
                                                                             seat: docs[i].seat,
@@ -248,8 +254,7 @@ router.get('/',function (req, res, next) {
         rank: -1,
         seats: -1,
         hit: 0,
-        price: -1,
-        paid: false
+        price: -1
     };
     userTokenModel.find({Token:token}, function (err, docs) {
         if (err) {
@@ -324,16 +329,16 @@ router.get('/',function (req, res, next) {
                                                             resdata.rank = result;
                                                             resdata.price = docs[i].biddingPrice;
                                                             resdata.paid = docs[i].paymentState;
-                                                            if (auctionType === 2 && i < seatnum && i < docs.length && docs.length === seatnum)
-                                                                paymentPrice = docs[seatnum-1].biddingPrice;
-                                                            else if (auctionType === 2 && i < seatnum && i < docs.length)
-                                                                paymentPrice = docs[Math.min(seatnum, docs.length)].biddingPrice;
                                                         }
                                                     }
                                                     if (result <= seatnum && result !== false) {
                                                         resdata.hit = 1;
                                                         if (auctionType === 1 || auctionType === 3)
                                                             paymentPrice = resdata.price;
+                                                        else if (auctionType === 2 && seatnum >= docs.length)
+                                                            paymentPrice = docs[docs.length-1].biddingPrice;
+                                                        else if(auctionType === 2 && seatnum < docs.length)
+                                                            paymentPrice = docs[seatnum].biddingPrice;
                                                     }
                                                     biddingResultModel.update({
                                                         auctionID: auctionid,

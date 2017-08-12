@@ -1,0 +1,32 @@
+<html>
+<%-head %>
+
+<body class="gray-bg">
+<div id="login-app">
+    <div class="text-center loginscreen animated">
+        <div>
+            <div>
+                <h1 class="logo-name">Agiview</h1>
+            </div>
+            <div class="middle-box">
+                <h3>Welcome to Agiview</h3>
+                <p>机票竞拍系统设置平台,您可以使用本系统查看航班竞拍结果和对其进行相应的竞拍策略设置.
+                </p>
+                <p>请使用管理员账号密码登录.</p>
+                <div class="m-t">
+                    <div class="form-group">
+                        <input v-model="username" v-on:keyup.enter="login" type="text" class="form-control" placeholder="Username" required="">
+                    </div>
+                    <div class="form-group">
+                        <input v-model="password" v-on:keyup.enter="login" type="password" class="form-control" placeholder="Password" required="">
+                    </div>
+                    <button class="btn btn-primary block full-width m-b" v-on:click="login">Login</button>
+                </div>
+                <p class="m-t"> <small>武汉万般上品信息技术有限公司 &copy; 2017</small> </p>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>

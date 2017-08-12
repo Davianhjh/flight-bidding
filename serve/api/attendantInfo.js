@@ -15,8 +15,7 @@ var attendantInfoSchema = new mongoose.Schema({
     O_code: { type:String },
     destination: { type:String },
     D_code: { type:String },
-    date: { type:String },
-    auctionID: { type: String }
+    date: { type:String }
 },{collection:"flightInfo"});
 var attentdantInfoModel = db.model("attendantInfo", attendantInfoSchema,"attendantInfo");
 

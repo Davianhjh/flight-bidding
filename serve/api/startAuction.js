@@ -8,6 +8,42 @@ db.on('error', function(error) {
     console.log(error);
 });
 
+var Xinge = require('./Xinge');
+var Xinge_Config = {
+    access_id: 2100263276,
+    secretKey: "ecc4c3ab199f1e5cca148e087d2ba0fd"
+};
+
+var xinge = new Xinge(Xinge_Config);
+
+var biddingResultSchema = new mongoose.Schema({
+    auctionID : { type:String },
+    flight: { type:String },
+    id: { type:String },
+    biddingPrice: { type:Number },
+    seat: { type:String },
+    paymentState: { type:Boolean },
+    paymentPrice:{ type:Number }
+},{collection:"biddingResult"});
+var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
+
+var flightInfoSchema = new mongoose.Schema({
+    id: { type:String },
+    name: { type:String },
+    tel: { type:String },
+    flight: { type:String },
+    date: { type:String },
+    userstatus: { type: Number }
+},{collection:"flightInfo"});
+var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+
+var flightManageSchema = new mongoose.Schema({
+    flight: { type:String },
+    date: { type:String },
+    state: { type:Number }
+},{collection:"flightManage"});
+var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage");
+
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     flight : { type:String },
@@ -26,9 +62,18 @@ var auctionFlightManageSchema = new mongoose.Schema({
     auctionID: { type:String },
     auctionType: { type:Number },
     auctionState: { type:Number },
-    seatnum: { type:Number }
+    seatnum: { type:Number },
+    date: { type:String }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
+
+var userTokenSchema = new mongoose.Schema({
+    Token: { type:String },
+    name: { type:String },
+    tel: { type:String },
+    deviceToken: { type:String }
+},{collection:"userToken"});
+var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 
 var serverTokenSchema = new mongoose.Schema({
     Token: { type:String }
@@ -55,6 +100,14 @@ router.post('/', function (req, res, next) {
         auction: -1,
         timelap: -1
     };
+
+    if(typeof(seatnum) === "undefined" || seatnum <= 0){
+        console.log("seat number params error");
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.write(JSON.stringify(resdata));
+        res.end();
+        return;
+    }
 
     serverTokenModel.find({Token: token}, function (err, docs) {
         if (err) {
@@ -103,6 +156,7 @@ router.post('/', function (req, res, next) {
                            else {
                                var auctionType = lists.auctionType;
                                var baseprice = lists.baseprice;
+                               var date = lists.date;
                                //var timelap = lists[0].timelap;
                                var startTime = Date.parse(new Date());
                                var auctionData = new auctionParamModel({
@@ -143,23 +197,240 @@ router.post('/', function (req, res, next) {
                                                    res.writeHead(200, {'Content-Type': 'application/json'});
                                                    res.write(JSON.stringify(resdata));
 
-                                                   var updateState = function () {
-                                                       return auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                           if (err)
-                                                               console.log(err);
-                                                           else {
-                                                               auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
-                                                                   if(error)
-                                                                       console.log(error);
-                                                                   else
-                                                                       console.log('update auctionState to 2');
-                                                               });
-                                                           }
-                                                       });
-                                                   };
-                                                   setTimeout(updateState, TIMELAP * 1000);
+                                                   flightInfoModel.update({flight:flight, date:date}, {userstatus:-1},{multi:true}, function (err) {
+                                                      if(err){
+                                                          console.log(err);
+                                                          console.log(500 + ": Server error");
+                                                          res.writeHead(200, {'Content-Type': 'application/json'});
+                                                          res.write(JSON.stringify(resdata));
+                                                          res.end();
+                                                      }
+                                                      else {
+                                                          var updateState = function () {
+                                                              return auctionParamModel.findOneAndUpdate({auctionID: auctionid}, {auctionState: 2}, {new:false}, function (err,list) {
+                                                                  if (err)
+                                                                      console.log(err);
+                                                                  else {
+                                                                      var seat = list.seatnum;
+                                                                      var auctionType = list.auctionType;
+                                                                      var flight = list.flight;
+                                                                      auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                          if(error)
+                                                                              console.log(error);
+                                                                          else {
+                                                                              console.log('update auctionState to 2');
+                                                                              flightManageModel.update({state:0}, function (error) {
+                                                                                  if(error)
+                                                                                      console.log(error);
+                                                                                  else {
+                                                                                      console.log("update flight " + flight + "'s state to 2");
+                                                                                      var Xinge_Option = {
+                                                                                          device_token: "",
+                                                                                          message_type: 1,
+                                                                                          message: {
+                                                                                              content:'',
+                                                                                              title:''
+                                                                                          },
+                                                                                          action: {
+                                                                                              action_type: 1,
+                                                                                              activity: "com.agiview.flightupdating.client.ResultActivity"
+                                                                                          },
+                                                                                          path: "/v2/push/single_device"
+                                                                                          // TO be added
+                                                                                      };
+                                                                                      var candidate = {};
+                                                                                      var passenger = [];
+                                                                                      var candidateID = [];
+                                                                                      var winner = [];
 
-                                                   res.end();
+                                                                                      if(auctionType !== 4) {
+                                                                                          biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
+                                                                                              if (err) {
+                                                                                                  console.log(err);
+                                                                                                  console.log(500 + ": Server error");
+                                                                                                  res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                  res.write(JSON.stringify(resdata));
+                                                                                              }
+                                                                                              else {
+                                                                                                  if (docs.length === 0) {
+                                                                                                      console.log(404 + ": auctionID not found in auctionResult");
+                                                                                                      res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                      res.write(JSON.stringify(resdata));
+                                                                                                  }
+                                                                                                  else {
+                                                                                                      for (var i = 0; i < docs.length; i++) {
+                                                                                                          if(i < seat)
+                                                                                                              winner.push(docs[i].id);
+                                                                                                          candidateID.push(docs[i].id);
+                                                                                                      }
+                                                                                                      flightInfoModel.find({id: {$in: winner}}, function (err, lists) {
+                                                                                                          if (err) {
+                                                                                                              console.log(err);
+                                                                                                              console.log(500 + ": Server error");
+                                                                                                              res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                              res.write(JSON.stringify(resdata));
+                                                                                                          }
+                                                                                                          else {
+                                                                                                              for (var i = 0; i < docs.length && i < seat; i++) {
+                                                                                                                  for (var j = 0; j < lists.length; j++) {
+                                                                                                                      if (docs[i].id === lists[j].id) {
+                                                                                                                          candidate = {
+                                                                                                                              id: lists[j].id,
+                                                                                                                              name: lists[j].name,
+                                                                                                                              tel: lists[j].tel,
+                                                                                                                              seat: docs[i].seat,
+                                                                                                                              price: docs[i].biddingPrice.toString(),
+                                                                                                                              paid: docs[i].paymentState
+                                                                                                                          };
+                                                                                                                          passenger.push(candidate);
+                                                                                                                          break;
+                                                                                                                      }
+                                                                                                                  }
+                                                                                                              }
+                                                                                                              passenger.forEach(function (doc, index) {
+                                                                                                                  userTokenModel.find({id:doc.id}, function (err, lists) {
+                                                                                                                      if(err){
+                                                                                                                          console.log("Error: " + err);
+                                                                                                                      }
+                                                                                                                      else {
+                                                                                                                          Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                          Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                          Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                                          xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                              if(err){
+                                                                                                                                  console.log('ERROR: '+err);
+                                                                                                                              }
+                                                                                                                              console.log(result);
+                                                                                                                          });
+                                                                                                                      }
+                                                                                                                  });
+                                                                                                              });
+                                                                                                              var failure = candidateID.slice(seat);
+                                                                                                              failure.forEach(function (doc, index) {
+                                                                                                                  userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                      if(err){
+                                                                                                                          console.log("Error: " + err);
+                                                                                                                      }
+                                                                                                                      else {
+                                                                                                                          Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                          Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                          Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                          xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                              if(err){
+                                                                                                                                  console.log('ERROR: '+err);
+                                                                                                                              }
+                                                                                                                              console.log(result);
+                                                                                                                          });
+                                                                                                                      }
+                                                                                                                  });
+                                                                                                              });
+                                                                                                              console.log("finish sending today's all candidates");
+                                                                                                          }
+                                                                                                      });
+                                                                                                  }
+                                                                                              }
+                                                                                          });
+                                                                                      }
+                                                                                      else {
+                                                                                          biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: 1}).exec(function (err, docs) {
+                                                                                              if (err) {
+                                                                                                  console.log(err);
+                                                                                                  console.log(500 + ": Server error");
+                                                                                                  res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                  res.write(JSON.stringify(resdata));
+                                                                                              }
+                                                                                              else {
+                                                                                                  if (docs.length === 0) {
+                                                                                                      console.log(404 + ": auctionID not found in biddingResult");
+                                                                                                      res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                      res.write(JSON.stringify(resdata));
+                                                                                                  }
+                                                                                                  else {
+                                                                                                      for (var i = 0; i < docs.length; i++) {
+                                                                                                          if(i < seat)
+                                                                                                              winner.push(docs[i].id);
+                                                                                                          candidateID.push(docs[i].id);
+                                                                                                      }
+                                                                                                      flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
+                                                                                                          if (err) {
+                                                                                                              console.log(err);
+                                                                                                              console.log(500 + ": Server error");
+                                                                                                              res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                              res.write(JSON.stringify(resdata));
+                                                                                                          }
+                                                                                                          else {
+                                                                                                              for (var i = 0; i < docs.length && i < seat; i++) {
+                                                                                                                  for (var j = 0; j < lists.length; j++) {
+                                                                                                                      if (docs[i].id === lists[j].id) {
+                                                                                                                          candidate = {
+                                                                                                                              id: lists[j].id,
+                                                                                                                              name: lists[j].name,
+                                                                                                                              tel: lists[j].tel,
+                                                                                                                              seat: docs[i].seat,
+                                                                                                                              price: docs[i].biddingPrice.toString(),
+                                                                                                                              paid: docs[i].paymentState
+                                                                                                                          };
+                                                                                                                          passenger.push(candidate);
+                                                                                                                          break;
+                                                                                                                      }
+                                                                                                                  }
+                                                                                                              }
+                                                                                                              passenger.forEach(function (doc, index) {
+                                                                                                                  userTokenModel.find({id:doc.id}, function (err, lists) {
+                                                                                                                      if(err){
+                                                                                                                          console.log("Error: " + err);
+                                                                                                                      }
+                                                                                                                      else {
+                                                                                                                          Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                          Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                          Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得超售补偿，请您登录APP查看。";
+                                                                                                                          xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                              if(err){
+                                                                                                                                  console.log('ERROR: '+err);
+                                                                                                                              }
+                                                                                                                              console.log(result);
+                                                                                                                          });
+                                                                                                                      }
+                                                                                                                  });
+                                                                                                              });
+
+                                                                                                              var failure = candidateID.slice(seat);
+                                                                                                              failure.forEach(function (doc, index) {
+                                                                                                                  userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                      if(err){
+                                                                                                                          console.log("Error: " + err);
+                                                                                                                      }
+                                                                                                                      else {
+                                                                                                                          Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                          Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                          Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得超售补偿，详情请登录app查看。";
+                                                                                                                          xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                              if(err){
+                                                                                                                                  console.log('ERROR: '+err);
+                                                                                                                              }
+                                                                                                                              console.log(result);
+                                                                                                                          });
+                                                                                                                      }
+                                                                                                                  });
+                                                                                                              });
+                                                                                                              console.log("finish sending today's all candidates");
+                                                                                                          }
+                                                                                                      });
+                                                                                                  }
+                                                                                              }
+                                                                                          });
+                                                                                      }
+                                                                                  }
+                                                                              });
+                                                                          }
+                                                                      });
+                                                                  }
+                                                              });
+                                                          };
+                                                          setTimeout(updateState, TIMELAP * 1000);
+                                                      }
+                                                      res.end();
+                                                   });
                                                }
                                            });
                                        }

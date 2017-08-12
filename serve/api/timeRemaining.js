@@ -12,7 +12,8 @@ var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     timelap: { type:Number },
     startTime: { type:Number },
-    auctionState: { type: Number }
+    auctionState: { type: Number },
+    auctionType: { type: Number }    //added
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
@@ -31,7 +32,8 @@ router.get('/', function (req, res, next) {
     var resdata = {
         result: 1,
         totaltime: -1,
-        timeleft: -1
+        timeleft: -1,
+        auctiontype: 0    //added
     };
 
     userTokenModel.find({Token:token}, function (err, docs) {
@@ -81,6 +83,7 @@ router.get('/', function (req, res, next) {
                                 else {
                                     var timeLap = docs[0].timelap;
                                     var auctionState = docs[0].auctionState;
+                                    var auctionType = docs[0].auctionType;
                                     var startTime = docs[0].startTime;
                                     if (auctionState === -1 || auctionState === 0 || auctionState === 2) {
                                         console.log(403+': error auctionState '+auctionState);
@@ -97,6 +100,7 @@ router.get('/', function (req, res, next) {
                                         if (timeLeft < 0) {
                                             console.log(403+': auction is closed');
                                             resdata.totaltime = timeLap;
+                                            resdata.auctiontype = auctionType;
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));
                                             res.end();
@@ -105,6 +109,7 @@ router.get('/', function (req, res, next) {
                                         else {
                                             resdata.timeleft = timeLeft/1000;
                                             resdata.totaltime = timeLap;
+                                            resdata.auctiontype = auctionType;
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));
                                             res.end();

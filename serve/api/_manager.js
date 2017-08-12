@@ -16,14 +16,18 @@ var apis = {
     advancedAuctionResult: require('./advancedAuctionResult'),
     setPaid: require('./setPaid'),
     transaction: require('./transaction'),
-    expChart: require('./expChart')
+    expChart: require('./expChart'),
+    loginAdmin: require('./loginAdmin'),
+    adminInfo: require('./adminInfo'),
+    setAuctionFlights: require('./setAuctionFlights'),
+    consoleResult: require('./consoleResult')
 };
 // Rest API's registered Above.
 
 var _ = require('lodash');
 var auth = require('../lib/auth/authService');
 var authMiddleWare = auth.middleWare;
-var registerAll = function(app){
+var bindApis = function(app){
     _.each(apis, function(api){
         if(!apis.skipAuth){
             // TODO: Auth Module
@@ -37,5 +41,5 @@ var registerAll = function(app){
 };
 
 module.exports = {
-    register: registerAll
+    bind: bindApis
 };

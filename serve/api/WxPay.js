@@ -41,6 +41,7 @@ WxPay.prototype._merge = function (object, source) {
 WxPay.prototype._sign = function (key, args) {
     args = this._merge(this._opt, args);
     args.nonce_str = getNonceStr();
+    this._noncestr = args.nonce_str;
     var arr = Object.keys(args).sort();
     console.log(args);
 
@@ -91,4 +92,12 @@ WxPay.prototype.requestPay = function (args, callback) {
     this._request(args, callback);
 };
 
+WxPay.prototype.WXsign = function (args) {
+    args = args || {};
+    var return_data = {
+        sign: this._sign(this._key, args),
+        noncestr: this._noncestr
+    };
+    return return_data
+};
 exports = module.exports = WxPay;

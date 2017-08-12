@@ -29,7 +29,7 @@ var auctionFlightManageSchema = new mongoose.Schema({
     date: { type:String },
     auctionType: { type:Number },
     baseprice: { type:Number },
-    auctionID: { type:String },
+    auctionID: { type:Number},
     auctionState: { type: Number}
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <%-head %>
+    <body id="">
+        <div id="home-app">
+            <top-nav v-bind:title="title"></top-nav>
+            <top-nav-placeholder></top-nav-placeholder>
+            <div class="product-list">
+                <product-grid-item v-for="item in items" :key="item.productId"
+                    v-bind:product-id="item.productId"
+                    v-bind:product-title="item.productTitle"
+                    v-bind:product-brief="item.productBrief"
+                    v-bind:product-count="item.productCount"
+                    v-bind:thumb="item.thumb">
+                </product-grid-item>
+            </div>
+        </div>
+    </body>
+</html>

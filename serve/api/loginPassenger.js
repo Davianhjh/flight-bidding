@@ -13,12 +13,17 @@ var userTokenSchema = new mongoose.Schema({
     password: {type: String},
     name: {type:String},
     tel: {type: String},
-    Token: {type: String}
+    Token: {type: String},
+    deviceToken: {type: String}
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 
-var router = require('express').Router();
 var jwt = require('jsonwebtoken');
+var bodyParser = require('body-parser');
+
+var router = require('express').Router();
+router.use(bodyParser.json({limit: '1mb'}));
+router.use(bodyParser.urlencoded({extended: true}));
 
 
 router.get('/', function (req, res, next) {
@@ -69,6 +74,77 @@ router.get('/', function (req, res, next) {
             res.write(JSON.stringify(resdata));
             res.end();
             console.log(403+": User/Password not match");
+        }
+    });
+});
+
+router.post('/', function (req, res, next) {
+    var passengerID = "";
+    var token = req.headers['agi-token'];
+    var deviceToken = req.body.devicetoken;
+    var resdata = {
+        result: 1,
+        devicetoken: -1
+    };
+
+    userTokenModel.find({Token: token}, function (err, docs) {
+        if (err) {
+            console.log(err);
+            console.log(500 + ": Server error");
+            resdata.result = -1;
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.write(JSON.stringify(resdata));
+            res.end();
+        }
+        else {
+            if (docs.length === 0) {
+                console.log(400 + ": Token is wrong");
+                resdata.result = -1;
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.write(JSON.stringify(resdata));
+                res.end();
+            }
+            else {
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
+                        console.log(403 + ": Token is not valid");
+                        resdata.result = -1;
+                        res.writeHead(200, {'Content-Type': 'application/json'});
+                        res.write(JSON.stringify(resdata));
+                        res.end();
+                    }
+                    else {
+                        passengerID = decoded.id;
+
+                        if(docs[0].deviceToken === ''){
+                            userTokenModel.update({Token:token}, {deviceToken:deviceToken}, function (err) {
+                                if(err){
+                                    console.log(err);
+                                    console.log(500 + ": Server error");
+                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                    res.write(JSON.stringify(resdata));
+                                    res.end();
+                                }
+                                else {
+                                    console.log("deviceToken saved");
+                                    resdata.devicetoken = 1;
+                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                    res.write(JSON.stringify(resdata));
+                                    res.end();
+                                }
+                            });
+                        }
+                        else {
+                            console.log(passengerID + "'s deviceToken already exist");
+                            resdata.devicetoken = 0;
+                            res.writeHead(200, {'Content-Type': 'application/json'});
+                            res.write(JSON.stringify(resdata));
+                            res.end();
+                        }
+                    }
+                });
+            }
         }
     });
 });

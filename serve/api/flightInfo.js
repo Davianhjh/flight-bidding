@@ -17,8 +17,7 @@ var flightInfoSchema = new mongoose.Schema({
     D_code: { type:String },
     date: { type:String },
     userstatus: { type: Number },
-    ticketnum: { type: String },
-    auctionID: { type: String }
+    ticketnum: { type: String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
 
@@ -37,7 +36,6 @@ var userTokenSchema = new mongoose.Schema({
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 var jwt = require('jsonwebtoken');
-var async = require('async');
 
 var router = require('express').Router();
 
@@ -101,8 +99,6 @@ router.get('/', function (req, res, next) {
                                 else {
                                     if (docs.length === 0) {
                                         console.log(404 + ": Passenger not existed on today's flight");
-                                        resdata.result = 1;
-                                        resdata.flights = [];
                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                         res.write(JSON.stringify(resdata));
                                         res.end();
@@ -126,23 +122,6 @@ router.get('/', function (req, res, next) {
                                                 }
                                                 else {
                                                     if(lists.length === 0){
-                                                        for(var m=0; m<docs.length; m++){
-                                                            var data = {
-                                                                flightno: docs[m].flight,
-                                                                ticketno: docs[m].ticketnum,
-                                                                date: docs[m].date,
-                                                                userstatus: docs[m].userstatus,
-                                                                auctionID: "",
-                                                                auctionState: -1,
-                                                                auctionType: 0,
-                                                                departure: docs[m].origin,
-                                                                departurecode: docs[m].O_code,
-                                                                arrival: docs[m].destination,
-                                                                arrivalcode: docs[m].D_code
-                                                            }
-                                                        }
-                                                        flights.push(data);
-                                                        resdata.flights = flights;
                                                         console.log("passenger have no auction flights today");
                                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                                         res.write(JSON.stringify(resdata));

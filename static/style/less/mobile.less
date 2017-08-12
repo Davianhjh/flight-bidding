@@ -1,0 +1,101 @@
+@import "values.less";
+
+*{
+    font-family: sans-serif;
+    color: @colorContentText;
+}
+
+html{
+    width: 100%;
+    background-color: @colorDefaultBackground;
+}
+
+// Top Nav
+.top-nav-container{
+    background-color: @colorPrimary;
+    width: 100%;
+    height: 56px;
+    position: fixed;
+    z-index: 10;
+    box-shadow: @layerShadow;
+    #left-nav-switch{
+        height: 56px;
+        width: 56px;
+        float: left;
+    }
+    #top-nav-title{
+        color: white;
+        font-size: 125%;
+        height: 56px;
+        line-height: 56px;
+        padding-left: 0;
+        float: left;
+    }
+}
+.top-nav-placeholder{
+    height: 56px;
+    width: 100%;
+}
+
+// Product List
+.product-list{
+    width: 100%;
+    padding: 0 0 10px 0;
+    .product-grid-item{
+        width: 47%;
+        margin-left: 2%;
+        margin-top: 10px;
+        height: 250px;
+        background-color: white;
+        float: left;
+        border-radius: 3px;
+        box-shadow: @layerShadowLight;
+        .product-grid-thumbnail{
+            border-radius: @defaultBorderRadius @defaultBorderRadius 0 0;
+            width: 100%;
+            height: 150px;
+            background-color: @placeholderBackground;
+            background-size: cover;
+            .thumbnail-count-down{
+                background-color: @colorCountDown0;
+                float: right;
+                height: 1.5em;
+                line-height: 1.5em;
+                width: 4em;
+                margin-top: .5em;
+                text-align: center;
+                color: white;
+            }
+        }
+        .product-grid-intro{
+            color: @colorPrimary;
+            padding: 5px;
+            height: 40px;
+            .product-grid-brief{
+                font-size: 75%;
+                color: @colorSecondaryText;
+            }
+            .product-grid-count{
+                font-size: 75%;
+                color:red;
+            }
+            .product-grid-count-text{
+                font-size: 75%;
+                color:@colorSecondaryText;
+            }
+        }
+        .product-grid-actions{
+            text-align: center;
+            padding-left: 20.5px;
+            height: 40px;
+            div{
+                float: left;
+                margin: 0 5px;
+                border-radius: 22px;
+                box-shadow: @layerShadowLight;
+                width: 40px;
+                height: 40px;
+            }
+        }
+    }
+}

@@ -1,0 +1,80 @@
+
+<head>
+    <meta charset="utf-8">
+
+    <%# Viewport for mobile devices %>
+    <% if(typeof mobile == 'boolean'){if(mobile){ %>
+    <meta id="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, minimum-scale=1,  user-scalable=no,minimal-ui" name="viewport">
+    <% }} %>
+    
+    <%# Stylesheets %>
+    <link rel="stylesheet" href="/static/style/common.css">
+    <% if(typeof mobile == 'boolean'){if(mobile){ %>
+    <link rel="stylesheet" href="/static/style/mobile.css">
+    <% }} %>
+    <% if(typeof additionalStylesheet == 'object'){ %>
+    <% additionalStylesheet.forEach(function(url){ %>
+    <link rel="stylesheet" href="<%-url %>">
+    <% });} %>
+
+    <%# Scripts %>
+    <script lang="javascript" src="/static/script/jquery.js" ></script>
+    <script lang="javascript" src="/static/script/vue.js" ></script>
+    <% if(typeof mobile == 'boolean'){if(mobile){ %>
+    <script lang="javascript" src="/static/script/mobile.js" ></script>
+    <% }} %>
+
+    <!--&lt;!&ndash;添加样式包&ndash;&gt;-->
+    <!--<script lang="javascript" src="/static/script/bootstrap.min.js" ></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.metisMenu.js" ></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.slimscroll.min.js" ></script>-->
+
+    <!-- Flot -->
+    <!--<script lang="javascript" src="/static/script/jquery.flot.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.flot.tooltip.min.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.flot.spline.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.flot.resize.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/jquery.flot.pie.js"></script>-->
+
+    <!--Peity-->
+    <!--<script lang="javascript" src="/static/script/jquery.peity.min.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/peity-demo.js"></script>-->
+
+    <!--Custom and plugin javascript-->
+    <!--<script lang="javascript" src="/static/script/inspinia.js"></script>-->
+    <!--<script lang="javascript" src="/static/script/pace.min.js"></script>-->
+
+    <!--jQuery UI-->
+    <!--<script lang="javascript" src="/static/script/jquery-ui.min.js"></script>-->
+
+    <!--GITTER-->
+    <!--<script lang="javascript" src="/static/script/jquery.gritter.min.js"></script>-->
+
+    <!--Sparkline-->
+    <!--<script lang="javascript" src="/static/script/jquery.sparkline.min.js"></script>-->
+
+    <!--Sparline demo data-->
+    <!--<script lang="javascript" src="/static/script/sparkline-demo.js"></script>-->
+
+    <!--ChartJS-->
+    <!--<script lang="javascript" src="/static/script/Chart.min.js"></script>-->
+
+    <!--Toastr-->
+    <!--<script lang="javascript" src="/static/script/toastr.min.js"></script>-->
+
+    <% if(typeof additionalScriptsSrc == 'object'){ %>
+    <% additionalScriptsSrc.forEach(function(url){ %>
+    <script lang="javascript" src="<%-url %>"></script>
+    <% });} %>
+    <% if(typeof additionalScriptsString == 'object'){ %>
+    <% additionalScriptsString.forEach(function(script){ %>
+    <script lang="javascript">
+        <!--
+    <%-script %>
+        -->
+    </script>
+    <% });} %>
+    <title><%-title %></title>
+
+
+</head>

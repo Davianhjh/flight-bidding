@@ -56,7 +56,7 @@ var Wxpay_Config = {
     body: "Wechat app payment",
     mch_id: "10000100",
     nonce_str: "",
-    notify_url: "http://i.wenn.co/generate_204",
+    notify_url: "http://220.202.15.42:10006/Wxpay_notify",
     out_trade_no: "",
     spbill_create_ip: "",
     total_fee: 0,
@@ -79,6 +79,15 @@ var biddingResultSchema = new mongoose.Schema({
 },{collection:"biddingResult"});
 var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
 
+var advancedAuctionResultSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    flight: { type:String },
+    id: { type:String },
+    price: { type:String },
+    paid: { type:Boolean }
+},{collection:"advancedAuctionResult"});
+var advancedAuctionResultModel = db.model("advancedAuctionResult", advancedAuctionResultSchema, "advancedAuctionResult");
+
 var transactionInfoSchema = new mongoose.Schema({
     transactionID : { type:String },
     passengerID: { type:String },
@@ -98,6 +107,7 @@ var userTokenSchema = new mongoose.Schema({
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 var jwt = require('jsonwebtoken');
+var SALT = 0;
 
 function getTransID(str) {
     var result ="";
@@ -165,7 +175,7 @@ function getParams(params) {
 
 function getSign(params) {
     try {
-        var privatePem = fs.readFileSync('/home/agiview/Documents/flight-bidding/private.pem');
+        var privatePem = fs.readFileSync('/home/hujinhua/flight-updating-server/private.pem');
         var key = privatePem.toString();
         var prestr = getParams(params);
         var mysign = crypto.createSign('RSA-SHA256');
@@ -176,7 +186,7 @@ function getSign(params) {
         console.log('err', err)
     }
 }
-
+/*
 function getVerifyParams(params) {
     var sPara = [];
     if(!params) return null;
@@ -198,16 +208,18 @@ function getVerifyParams(params) {
     }
     return prestr;
 }
-
+*/
 function verifySign(params, sign, algorithm) {
     try {
-        var publicPem = fs.readFileSync('/home/agiview/Documents/flight-bidding/Alipay_public.pem');
+        var publicPem = fs.readFileSync('/home/hujinhua/flight-updating-server/Alipay_public.pem');
         var publicKey = publicPem.toString();
-        var prestr = getVerifyParams(params);
+        var prestr = JSON.stringify(params);
+	console.log("prestr: " + prestr);
         var verify = crypto.createVerify(algorithm);
+        verify.update(prestr);
         return verify.verify(publicKey, sign, 'base64');
     } catch(err) {
-        console.log('veriSign err', err)
+        console.log('verifySign err', err)
     }
 }
 
@@ -268,173 +280,390 @@ router.post('/',function (req, res, next) {
                                 signType: "RSA2",
                                 signedstr: ""
                             };
-                            biddingResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
-                                if (err) {
-                                    console.log(err);
-                                    console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    if (docs.length === 0) {
-                                        console.log(404 + ": Passenger not participate in the bidding on flight " + flight);
+                            var auctionType = parseInt(auctionid.slice(auctionid.length-1));
+                            if(auctionType === 1 || auctionType ===2 || auctionType === 3 || auctionType === 4) {
+                                biddingResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log(500 + ": Server error");
                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                         res.write(JSON.stringify(resdata));
                                         res.end();
                                     }
                                     else {
-                                        var timestamp = Date.parse(new Date());
-                                        var transactionid = getTransID(auctionid + passengerID) + "2";
-                                        //var transactionid = parseInt(Math.random()*10000000 + 1);
-                                        console.log(transactionid);
-                                        var total_amount = docs[0].paymentPrice;
-
-                                        if(method === "Alipay") {
-                                            AlipayConfig.biz_content.total_amount = total_amount.toString();
-                                            AlipayConfig.biz_content.out_trade_no = transactionid;
-                                            var mySign = getSign(AlipayConfig);
-                                            var myParam = getParams(AlipayConfig);
-                                            var str = myParam + '&sign=' + mySign;
-                                            var signedstr = encodeMyStr(str);
-                                            var transactionData = new transactionInfoModel({
-                                                "transactionID": transactionid,
-                                                "passengerID": passengerID,
-                                                "auctionID": auctionid,
-                                                "amount": total_amount,
-                                                "date": timestamp,
-                                                "method": method,
-                                                "paymentState": false,
-                                                "signedstr": signedstr
-                                            });
-                                            transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
-                                                if (err) {
-                                                    console.log(err);
-                                                    console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else if (docs.length === 0) {
-                                                    transactionData.save(function (err) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            console.log('save success');
-                                                            resdata.signedstr = signedstr;
-                                                            resdata.transactionID = transactionid;
-                                                            //console.log(signedstr);
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                    });
-                                                }
-                                                else {
-                                                    console.log(403 + ': repeated transaction id');
-                                                    resdata.signedstr = docs[0].signedstr;
-                                                    resdata.transactionID = transactionid;
-                                                    resdata.status = true;
-                                                    //console.log(signedstr);
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                            });
+                                        if (docs.length === 0) {
+                                            console.log(404 + ": Passenger not participate in the bidding on flight " + flight);
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
                                         }
-                                        else if(method === "wxpay"){
-                                            var wxpay = new WxPay(Wxpay_Config);
-                                            WxPay_Options.out_trade_no = transactionid;
-                                            WxPay_Options.total_fee = total_amount;
-                                            WxPay_Options.spbill_create_ip = user_ip;
-                                            wxpay.requestPay(WxPay_Options, function (err, result) {
-                                                if(err){
-                                                    console.log('ERROR: '+err);
-                                                }
-                                                console.log(result);
-                                                //
-                                                // TODO
-                                                //
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                        else if (action === "confirmPayment") {
-                            resdata = {
-                                result: 1,
-                                acknowledged: false
-                            };
-                            var alipay_trade_app_pay_response = req.body.alipay_trade_app_pay_response;
-                            var sign = req.body.sign;
-                            var sign_type = req.body.sign_type;
-                            if (sign_type === 'RSA2')
-                                sign_type = "RSA-SHA256";
-                            else sign_type = "";
-                            //var tmp = verifySign(alipay_trade_app_pay_response, sign, sign_type);
+                                        else {
+                                            var timestamp = Date.parse(new Date());
+                                            var transactionid = getTransID(auctionid + passengerID) + SALT.toString();
+                                            SALT++;
+                                            console.log(transactionid);
+                                            var total_amount = docs[0].paymentPrice;
 
-                            var tradeID = alipay_trade_app_pay_response.out_trade_no;
-                            var total_amount = alipay_trade_app_pay_response.total_amount;
-                            var seller_id = alipay_trade_app_pay_response.seller_id;
-                            var app_id = alipay_trade_app_pay_response.app_id;
-                            transactionInfoModel.find({transactionID: tradeID}, function (err, docs) {
-                                if (err) {
-                                    console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else if (docs.length === 0) {
-                                    console.log(403 + ': out_trade_no is not correct');
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    if (docs[0].amount == total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
-                                        resdata.acknowledged = true;
-                                        transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
-                                            if (err) {
-                                                console.log(500 + ": Server error");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
-                                            }
-                                            else {
-                                                biddingResultModel.update({
-                                                    auctionID: auctionid,
-                                                    id: passengerID
-                                                }, {paymentState: true}, function (err) {
+                                            if (method === "Alipay") {
+                                                AlipayConfig.biz_content.total_amount = total_amount.toString();
+                                                AlipayConfig.biz_content.out_trade_no = transactionid;
+                                                var mySign = getSign(AlipayConfig);
+                                                var myParam = getParams(AlipayConfig);
+                                                var str = myParam + '&sign=' + mySign;
+                                                var signedstr = encodeMyStr(str);
+                                                var transactionData = new transactionInfoModel({
+                                                    "transactionID": transactionid,
+                                                    "passengerID": passengerID,
+                                                    "auctionID": auctionid,
+                                                    "amount": total_amount,
+                                                    "date": timestamp,
+                                                    "method": method,
+                                                    "paymentState": false,
+                                                    "signedstr": signedstr
+                                                });
+                                                transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
                                                     if (err) {
+                                                        console.log(err);
                                                         console.log(500 + ": Server error");
                                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                                         res.write(JSON.stringify(resdata));
                                                         res.end();
                                                     }
+                                                    else if (docs.length === 0) {
+                                                        transactionData.save(function (err) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log('save success');
+                                                                resdata.signedstr = signedstr;
+                                                                resdata.transactionID = transactionid;
+                                                                //console.log(signedstr);
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
                                                     else {
-                                                        console.log("payment confirmed successfully");
+                                                        console.log(403 + ': repeated transaction id');
+                                                        resdata.signedstr = docs[0].signedstr;
+                                                        resdata.transactionID = transactionid;
+                                                        resdata.status = true;
+                                                        //console.log(signedstr);
                                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                                         res.write(JSON.stringify(resdata));
                                                         res.end();
                                                     }
                                                 });
                                             }
-                                        });
+                                            else if (method === "wxpay") {
+                                                var wxpay = new WxPay(Wxpay_Config);
+                                                WxPay_Options.out_trade_no = transactionid;
+                                                WxPay_Options.total_fee = total_amount;
+                                                WxPay_Options.spbill_create_ip = user_ip;
+                                                wxpay.requestPay(WxPay_Options, function (err, result) {
+                                                    if (err) {
+                                                        console.log('ERROR: ' + err);
+                                                    }
+                                                    else if (result.return_code === 'FAIL') {
+                                                        console.log("return_msg: " + result.return_msg);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else if (result.result_code !== 'SUCCESS') {
+                                                        console.log("result_code" + result.return_code);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        console.log(result);
+                                                        var timeStamp = Date.parse(new Date()) / 1000;
+                                                        var Prepay_Config = {
+                                                            appid: Wxpay_Config.appid,
+                                                            partnerid: Wxpay_Config.mch_id,
+                                                            package: "Sign=WXPay",
+                                                            key: Wxpay_Config.key
+                                                        };
+                                                        var Prepay_options = {
+                                                            prepay_id: result.prepay_id,
+                                                            timestamp: timeStamp
+                                                        };
+                                                        var prepay = new WxPay(Prepay_Config);
+                                                        var data = prepay.WXsign(Prepay_options);
+                                                        resdata.appid = Wxpay_Config.appid;
+                                                        resdata.partnerid = Wxpay_Config.mch_id;
+                                                        resdata.prepay_id = result.prepay_id;
+                                                        resdata.package = "Sign=WXPay";
+                                                        resdata.noncestr = data.noncestr;
+                                                        resdata.timestamp = timeStamp;
+                                                        resdata.sign = data.sign;
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                });
+                                            }
+                                        }
                                     }
-                                    else {
-                                        console.log("total_amount / seller_id / app_id not correct");
+                                });
+                            }
+                            else if(auctionType === 5){
+                                advancedAuctionResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log(500 + ": Server error");
                                         res.writeHead(200, {'Content-Type': 'application/json'});
                                         res.write(JSON.stringify(resdata));
                                         res.end();
                                     }
-                                }
-                            });
+                                    else {
+                                        if (docs.length === 0) {
+                                            console.log(404 + ": Passenger not participate in the bidding on flight " + flight);
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                        else {
+                                            var timestamp = Date.parse(new Date());
+                                            var transactionid = getTransID(auctionid + passengerID) + SALT.toString();
+                                            SALT++;
+                                            console.log(transactionid);
+                                            var total_amount = docs[0].price;
+
+                                            if (method === "Alipay") {
+                                                AlipayConfig.biz_content.total_amount = total_amount.toString();
+                                                AlipayConfig.biz_content.out_trade_no = transactionid;
+                                                var mySign = getSign(AlipayConfig);
+                                                var myParam = getParams(AlipayConfig);
+                                                var str = myParam + '&sign=' + mySign;
+                                                var signedstr = encodeMyStr(str);
+                                                var transactionData = new transactionInfoModel({
+                                                    "transactionID": transactionid,
+                                                    "passengerID": passengerID,
+                                                    "auctionID": auctionid,
+                                                    "amount": total_amount,
+                                                    "date": timestamp,
+                                                    "method": method,
+                                                    "paymentState": false,
+                                                    "signedstr": signedstr
+                                                });
+                                                transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
+                                                    if (err) {
+                                                        console.log(err);
+                                                        console.log(500 + ": Server error");
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else if (docs.length === 0) {
+                                                        transactionData.save(function (err) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log('save success');
+                                                                resdata.signedstr = signedstr;
+                                                                resdata.transactionID = transactionid;
+                                                                console.log(signedstr);
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
+                                                    else {
+                                                        console.log(403 + ': repeated transaction id');
+                                                        resdata.signedstr = docs[0].signedstr;
+                                                        resdata.transactionID = transactionid;
+                                                        resdata.status = true;
+                                                        //console.log(signedstr);
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                });
+                                            }
+                                            else if (method === "wxpay") {
+                                                var wxpay = new WxPay(Wxpay_Config);
+                                                WxPay_Options.out_trade_no = transactionid;
+                                                WxPay_Options.total_fee = total_amount;
+                                                WxPay_Options.spbill_create_ip = user_ip;
+                                                wxpay.requestPay(WxPay_Options, function (err, result) {
+                                                    if (err) {
+                                                        console.log('ERROR: ' + err);
+                                                    }
+                                                    else if (result.return_code === 'FAIL') {
+                                                        console.log("return_msg: " + result.return_msg);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else if (result.result_code !== 'SUCCESS') {
+                                                        console.log("result_code" + result.return_code);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        console.log(result);
+                                                        var timeStamp = Date.parse(new Date()) / 1000;
+                                                        var Prepay_Config = {
+                                                            appid: Wxpay_Config.appid,
+                                                            partnerid: Wxpay_Config.mch_id,
+                                                            package: "Sign=WXPay",
+                                                            key: Wxpay_Config.key
+                                                        };
+                                                        var Prepay_options = {
+                                                            prepay_id: result.prepay_id,
+                                                            timestamp: timeStamp
+                                                        };
+                                                        var prepay = new WxPay(Prepay_Config);
+                                                        var data = prepay.WXsign(Prepay_options);
+                                                        resdata.appid = Wxpay_Config.appid;
+                                                        resdata.partnerid = Wxpay_Config.mch_id;
+                                                        resdata.prepay_id = result.prepay_id;
+                                                        resdata.package = "Sign=WXPay";
+                                                        resdata.noncestr = data.noncestr;
+                                                        resdata.timestamp = timeStamp;
+                                                        resdata.sign = data.sign;
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                        else if (action === "confirmPayment") {
+                            resdata = {
+                                result: 1,
+                                acknowledged: false
+                            };
+			    console.log(req.body);
+                            var alipay_trade_app_pay_response = req.body.alipay_trade_app_pay_response;
+                            var sign = req.body.sign;
+                            var sign_type = req.body.sign_type;
+                            if (sign_type === 'RSA2')
+                                sign_type = "RSA-SHA256";
+                            else if(sign_type === 'RSA')
+                                sign_type = "RSA-SHA1";
+                            else {
+                                console.log(403 + ': sign_type is not correct');
+                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                res.write(JSON.stringify(resdata));
+                                res.end();
+                                return;
+                            }
+                            var verifyResult = verifySign(alipay_trade_app_pay_response, sign, sign_type);
+                            if(verifyResult) {
+                                // sign is verified successfully
+                                var tradeID = alipay_trade_app_pay_response.out_trade_no;
+                                var total_amount = alipay_trade_app_pay_response.total_amount;
+                                var seller_id = alipay_trade_app_pay_response.seller_id;
+                                var app_id = alipay_trade_app_pay_response.app_id;
+                                transactionInfoModel.find({transactionID: tradeID}, function (err, docs) {
+                                    if (err) {
+                                        console.log(500 + ": Server error");
+                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                        res.write(JSON.stringify(resdata));
+                                        res.end();
+                                    }
+                                    else if (docs.length === 0) {
+                                        console.log(403 + ': out_trade_no is not correct');
+                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                        res.write(JSON.stringify(resdata));
+                                        res.end();
+                                    }
+                                    else {
+                                        if (docs[0].amount == total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
+                                            resdata.acknowledged = true;
+                                            transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
+                                                if (err) {
+                                                    console.log(500 + ": Server error");
+                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                    res.write(JSON.stringify(resdata));
+                                                    res.end();
+                                                }
+                                                else {
+                                                    var auctionType = parseInt(auctionid.slice(auctionid.length-1));
+                                                    if (auctionType === 1 || auctionType === 2 || auctionType === 3 || auctionType === 4) {
+                                                        biddingResultModel.update({
+                                                            auctionID: auctionid,
+                                                            id: passengerID
+                                                        }, {paymentState: true}, function (err) {
+                                                            if (err) {
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log("payment confirmed successfully");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
+                                                    else {
+                                                        advancedAuctionResultModel.update({
+                                                            auctionID: auctionid,
+                                                            id: passengerID
+                                                        }, {paid: true}, function (err) {
+                                                            if (err) {
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log("payment confirmed successfully");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                            });
+                                        }
+                                        else {
+                                            console.log("total_amount / seller_id / app_id not correct");
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                    }
+                                });
+                            }
+                            else {
+                                console.log(403 + ": signature verify failed");
+                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                res.write(JSON.stringify(resdata));
+                                res.end();
+                            }
                         }
                     }
                 });

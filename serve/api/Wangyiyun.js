@@ -1,5 +1,5 @@
 /**
- * Created by hujinhua on 17-7-27.
+ * Created by hujinhua on 17-7-31.
  */
 var crypto = require("crypto");
 var request  = require("request");
@@ -54,21 +54,20 @@ Wangyiyun.prototype._merge = function (object, source) {
 Wangyiyun.prototype._sign = function () {
     this._opt.CurTime = getTimeStamp();
     this._opt.Nonce = getSignatureNonce();
-
-    console.log(this._opt.Nonce);
-    console.log(this._opt.CurTime.toString());
+    //console.log(this._opt.Nonce);
+    //console.log(this._opt.CurTime.toString());
 
     var signStr = this._opt.AppSecret + this._opt.Nonce + this._opt.CurTime.toString();
-    console.log("signStr: " + signStr);
+    //console.log("signStr: " + signStr);
     var sign = crypto.createHash('sha1').update(signStr).digest().toString('hex');
-    console.log("sign: " + sign);
+    //console.log("sign: " + sign);
     return sign;
 };
 
 Wangyiyun.prototype._request = function (args, callback) {
     var header = getHeader(this._opt, this._sign());
     var form = 'templateid='+args.templateid+'&mobiles=["'+args.mobiles+'"]&params=["'+args.name+'","'+args.flight+'","'+args.price+'"]';
-    console.log("form: " + form);
+    //console.log("form: " + form);
     var option = {
         method: 'POST',
         uri: 'https://api.netease.im/sms/sendtemplate.action',

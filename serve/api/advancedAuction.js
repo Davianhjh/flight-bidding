@@ -16,26 +16,40 @@ var Wangyi_Config = {
 
 var wangyi = new Wangyiyun(Wangyi_Config);
 
-/*
- var Alidayu = require('./Alidayu');
- var Text_Config = {
- AccessKeyId: '23300111',   //needed to be changed
- AccessSecret: '3403636b338e1003999dd946111111'   //needed to be changed
- };
+var Xinge = require('./Xinge');
+var Xinge_Config = {
+    access_id: 2100263276,
+    secretKey: "ecc4c3ab199f1e5cca148e087d2ba0fd"
+};
 
- var alidayu = new Alidayu(Text_Config);
- var Alidayu_options = {
- SignName: 'flight auction wins',
- TemplateParam: {
- name: '',
- flight: '',
- price: ''
- },
- PhoneNumbers: '',
- TemplateCode: 'SMS_4725038',  // needed to be changed
- OutId: '83db305a-70e9-11e7-86c0-484d7ec4298c' // needed to be changed
- };
- */
+var xinge = new Xinge(Xinge_Config);
+/*
+var Alidayu = require('./Alidayu');
+var Text_Config = {
+    AccessKeyId: '23300111',   //needed to be changed
+    AccessSecret: '3403636b338e1003999dd946111111'   //needed to be changed
+};
+
+var alidayu = new Alidayu(Text_Config);
+var Alidayu_options = {
+    SignName: 'flight auction wins',
+    TemplateParam: {
+        name: '',
+        flight: '',
+        price: ''
+    },
+    PhoneNumbers: '',
+    TemplateCode: 'SMS_4725038',  // needed to be changed
+    OutId: '83db305a-70e9-11e7-86c0-484d7ec4298c' // needed to be changed
+};
+*/
+
+var flightManageSchema = new mongoose.Schema({
+    flight: { type:String },
+    date: { type:String },
+    state: { type:Number }
+},{collection:"flightManage"});
+var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage");
 
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
@@ -56,7 +70,9 @@ var auctionFlightManageSchema = new mongoose.Schema({
     auctionID: { type:String },
     auctionType: { type:Number },
     auctionState: { type:Number },
-    seatnum: { type:Number }
+    seatnum: { type:Number },
+    baseprice: { type:Number},
+    date: { type:Number }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
@@ -86,33 +102,48 @@ var flightInfoSchema = new mongoose.Schema({
     name: { type:String },
     tel: { type:String },
     flight: { type:String },
-    seat: { type:String }
+    seat: { type:String },
+    date: { type:String },
+    userstatus: { type:Number }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
 
+var adminTokenSchema = new mongoose.Schema({
+    Token: {type: String}
+},{collection:"userToken"});
+var adminTokenModel = db.model("adminToken", adminTokenSchema,"adminToken");
+
+var userTokenSchema = new mongoose.Schema({
+    id: {type: String},
+    name: {type:String},
+    tel: {type: String},
+    deviceToken: {type: String}
+},{collection:"userToken"});
+var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
+
+
 var bodyParser = require('body-parser');
+var jwt = require('jsonwebtoken');
 
 var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
-var BASEPRICE = 512;
 var TIMELAP = 60 * 2;
 var AUCTIONTYPE = 5;
 
-router.get('/', function (req, res, next) {
+router.post('/', function (req, res, next) {
     var token = req.headers['agi-token'];
-    var flight = req.query.flight;
-    var auctionid = req.query.auctionid;
-    var daynum = req.query.day;
-    var seatnum = req.query.seat;
+    var flight = req.body.flight;
+    var auctionid = req.body.auctionid;
+    var daynum = req.body.day;
+    var seatnum = req.body.seat;
 
     var resdata = {
         result: 1,
         auction: -1,
         timelap: TIMELAP
     };
-
     var Wangyiyun_Options = {
         templateid: "3061769",
         mobiles: "",
@@ -121,425 +152,764 @@ router.get('/', function (req, res, next) {
         price: ""
     };
 
-    auctionFlightManageModel.findOneAndUpdate({auctionID:auctionid,auctionType:AUCTIONTYPE}, {$set: {seatnum:seatnum, auctionState:1}}, {new:false}, function (err, lists) {
-        if(err){
+    adminTokenModel.find({Token: token}, function (err, docs) {
+        if (err) {
             console.log(err);
             console.log(500 + ": Server error");
+            resdata.result = -1;
             res.writeHead(200, {'Content-Type': 'application/json'});
             res.write(JSON.stringify(resdata));
             res.end();
-        }
-        else if (typeof(auctionid) === "undefined" || lists === null) {
-            console.log(403 + ": auctionID invalid params error");
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
-            res.end();
-            return;
         }
         else {
-            var auctionType = lists.auctionType;
-            var baseprice = lists.baseprice;
-            //var timelap = lists[0].timelap;
-            var startTime = Date.parse(new Date());
-            var auctionData = new auctionParamModel({
-                "auctionID": auctionid,
-                "flight": flight,
-                "attentantUUID": "BACKEND",
-                "baseprice": baseprice,
-                "timelap": TIMELAP,
-                "seatnum": seatnum,
-                "startTime": startTime,
-                "auctionType": auctionType,
-                "auctionState": 1,
-                "count": 0
-            });
-
-            auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
-                if (error) {
-                    console.log(error);
-                    console.log(500 + ": Server error");
-                    res.writeHead(200, {'Content-Type': 'application/json'});
-                    res.write(JSON.stringify(resdata));
-                    res.end();
-                }
-                else {
-                    if (typeof(auctionid) === "undefined") {
-                        console.log(403 + ": auctionID invalid params error");
+            if (docs.length === 0) {
+                console.log(400 + ": Token is wrong");
+                resdata.result = -1;
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.write(JSON.stringify(resdata));
+                res.end();
+            }
+            else {
+                jwt.verify(token, 'secret', function (error1, decoded) {
+                    if (error1) {
+                        console.log(error1);
+                        console.log(403 + ": Token is not valid");
+                        resdata.result = -1;
                         res.writeHead(200, {'Content-Type': 'application/json'});
                         res.write(JSON.stringify(resdata));
                         res.end();
                     }
-                    else if (docs.length === 0) {
-                        auctionData.save(function (err) {
-                            if (err) {
+                    else {
+                        auctionFlightManageModel.findOneAndUpdate({auctionID:auctionid,auctionType:AUCTIONTYPE}, {$set: {seatnum:seatnum, auctionState:1}}, {new:false}, function (err, lists) {
+                            if(err){
                                 console.log(err);
                                 console.log(500 + ": Server error");
                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                 res.write(JSON.stringify(resdata));
                                 res.end();
                             }
-                            else {
-                                console.log('save success');
-                                resdata.auction = 1;
-                                resdata.timelap = TIMELAP;
+                            else if (typeof(auctionid) === "undefined" || lists === null) {
+                                console.log(403 + ": auctionID invalid params error");
                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                 res.write(JSON.stringify(resdata));
                                 res.end();
+                                return;
+                            }
+                            else {
+                                var auctionType = lists.auctionType;
+                                var baseprice = lists.baseprice;
+                                var date = lists.date;
+                                //var timelap = lists[0].timelap;
+                                var startTime = Date.parse(new Date());
+                                var auctionData = new auctionParamModel({
+                                    "auctionID": auctionid,
+                                    "flight": flight,
+                                    "attentantUUID": "BACKEND",
+                                    "baseprice": baseprice,
+                                    "timelap": TIMELAP,
+                                    "seatnum": seatnum,
+                                    "startTime": startTime,
+                                    "auctionType": auctionType,
+                                    "auctionState": 1,
+                                    "count": 0
+                                });
 
-                                var day_count = 0;
-                                var updateState = function () {
-                                    auctionParamModel.find({auctionID: auctionid,flight: flight}, function (err, doc) {
-                                        if(err){
-                                            console.log(err);
-                                            console.log(500 + ": Server error");
+                                auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
+                                    if (error) {
+                                        console.log(error);
+                                        console.log(500 + ": Server error");
+                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                        res.write(JSON.stringify(resdata));
+                                        res.end();
+                                    }
+                                    else {
+                                        if (typeof(auctionid) === "undefined") {
+                                            console.log(403 + ": auctionID invalid params error");
                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                             res.write(JSON.stringify(resdata));
                                             res.end();
-                                            clearInterval(IntervalID);
                                         }
-                                        else {
-                                            var seat = doc[0].seatnum;
-                                            var candidateID = [];
-                                            biddingResultModel.find({auctionID: auctionid})
-                                            //.where("biddingPrice").gte(BASEPRICE)
-                                                .where("biddingTime").gte(doc[0].startTime)
-                                                .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
-                                                .sort({biddingPrice:-1})
-                                                .exec(function (err, arr) {
-                                                    if (err) {
-                                                        console.log(err);
-                                                        console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
-                                                        res.end();
-                                                        clearInterval(IntervalID);
-                                                    }
-                                                    else {
-                                                        console.log("today's total number of bidding is " + arr.length);
-                                                        for(var m=0;m<arr.length;m++){
-                                                            candidateID.push(arr[m].id);
+                                        else if (docs.length === 0) {
+                                            auctionData.save(function (err) {
+                                                if (err) {
+                                                    console.log(err);
+                                                    console.log(500 + ": Server error");
+                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                    res.write(JSON.stringify(resdata));
+                                                    res.end();
+                                                }
+                                                else {
+                                                    console.log('save success');
+                                                    resdata.auction = 1;
+                                                    resdata.timelap = TIMELAP;
+                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                    res.write(JSON.stringify(resdata));
+                                                    res.end();
+
+                                                    var Xinge_Option = {
+                                                        device_token: "",
+                                                        message_type: 1,
+                                                        message: {
+                                                            content:'',
+                                                            title:''
+                                                        },
+                                                        action: {
+                                                            action_type: 1,
+                                                            activity: "com.agiview.flightupdating.client.ResultActivity"
+                                                        },
+                                                        path: "/v2/push/single_device"
+                                                        // TO be added
+                                                    };
+
+                                                    flightInfoModel.update({flight:flight, date:date}, {userstates:-1}, function (err) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                            console.log(500 + ": Server error");
+                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                            res.write(JSON.stringify(resdata));
+                                                            res.end();
                                                         }
-                                                        console.log("the candidates: " + candidateID);
-
-                                                        biddingResultModel.find({auctionID: auctionid})
-                                                            .where("biddingPrice").gte(BASEPRICE)
-                                                            .where("biddingTime").gte(doc[0].startTime)
-                                                            .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
-                                                            .sort({biddingPrice:-1})
-                                                            .exec(function (err, docs) {
-                                                                if (err) {
-                                                                    console.log(err);
-                                                                    console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                    clearInterval(IntervalID);
-                                                                }
-                                                                else {
-                                                                    console.log("today's above baseprice bidding is " + docs.length);
-                                                                    var candidate = {};
-                                                                    var passenger = [];
-                                                                    var id_Array = [];
-                                                                    var failure = [];
-                                                                    if(docs.length >= seat){
-                                                                        console.log("No auction seats left");
-                                                                        for (var i = 0; i < seat; i++) {
-                                                                            id_Array.push(docs[i].id);
-                                                                        }
-                                                                        flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
-                                                                            if (err) {
-                                                                                console.log(err);
-                                                                                console.log(500 + ": Server error");
-                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                res.write(JSON.stringify(resdata));
-                                                                                res.end();
-                                                                            }
-                                                                            else {
-                                                                                for (var i = 0; i < seat; i++) {
-                                                                                    for (var j = 0; j < lists.length; j++) {
-                                                                                        if (docs[i].id === lists[j].id) {
-                                                                                            candidate = {
-                                                                                                auctionID: auctionid,
-                                                                                                flight: docs[i].flight,
-                                                                                                name: lists[j].name,
-                                                                                                id: lists[j].id,
-                                                                                                tel: lists[j].tel,
-                                                                                                seat: lists[j].seat,
-                                                                                                price: docs[i].biddingPrice.toString(),
-                                                                                                paid: false
-                                                                                            };
-                                                                                            passenger.push(candidate);
-                                                                                            break;
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                                // texting APIs (passenger)
-                                                                                passenger.forEach(function (doc, index) {
-                                                                                    Wangyiyun_Options.mobiles = doc.tel;
-                                                                                    Wangyiyun_Options.flight = doc.flight;
-                                                                                    Wangyiyun_Options.name = doc.name;
-                                                                                    Wangyiyun_Options.price = doc.price;
-                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                        if(err){
-                                                                                            console.log('ERROR'+err);
-                                                                                        }
-                                                                                        console.log(result);
-                                                                                    });
-                                                                                });
-                                                                                console.log("finish texting all winners");
-                                                                                /*
-                                                                                 passenger.forEach(function (doc, index) {
-                                                                                 Alidayu_options.PhoneNumbers = index.tel;
-                                                                                 Alidayu_options.TemplateParam.flight = index.flight;
-                                                                                 Alidayu_options.TemplateParam.name = index.name;
-                                                                                 Alidayu_options.TemplateParam.price = index.price;
-                                                                                 alidayu.sms(options,function(err,result){
-                                                                                 if(err){
-                                                                                 console.log('ERROR'+err);
-                                                                                 }
-                                                                                 console.log(result);
-                                                                                 });
-                                                                                 });
-                                                                                 */
-                                                                                // APP sending APIs
-                                                                                failure = candidateID.slice(seat);
-                                                                                console.log(failure);
-                                                                                console.log("finish sending all failures");
-
-                                                                                advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                    if(err){
-                                                                                        console.log(err);
-                                                                                        console.log(500 + ": Server error");
-                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                        res.write(JSON.stringify(resdata));
-                                                                                        res.end();
-                                                                                    }
-                                                                                    else {
-                                                                                        console.log("advanced auction bidding result saved");
-                                                                                        //console.log(array);
-                                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                                                            if (err)
-                                                                                                console.log(err);
-                                                                                            else {
-                                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
-                                                                                                    if(error)
-                                                                                                        console.log(error);
-                                                                                                    else {
-                                                                                                        console.log('update auctionState to 2');
-                                                                                                        clearInterval(IntervalID);
-                                                                                                    }
-                                                                                                });
-                                                                                            }
-                                                                                        });
-                                                                                    }
-                                                                                });
-                                                                            }
-                                                                        });
+                                                        else {
+                                                            var day_count = 0;
+                                                            var updateState = function () {
+                                                                auctionParamModel.find({auctionID: auctionid,flight: flight}, function (err, doc) {
+                                                                    if(err){
+                                                                        console.log(err);
+                                                                        console.log(500 + ": Server error");
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                        clearInterval(IntervalID);
                                                                     }
                                                                     else {
-                                                                        var now_seat = seat - docs.length;
-                                                                        day_count += 1;
-                                                                        for (var j = 0; j < docs.length; j++) {
-                                                                            id_Array.push(docs[j].id);
-                                                                        }
-                                                                        if(day_count >= daynum) {
-                                                                            console.log("no auction days left");
-                                                                            flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
+                                                                        var seat = doc[0].seatnum;
+                                                                        var candidateID = [];
+                                                                        biddingResultModel.find({auctionID: auctionid})
+                                                                        //.where("biddingPrice").gte(BASEPRICE)
+                                                                            .where("biddingTime").gte(doc[0].startTime)
+                                                                            .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
+                                                                            .sort({biddingPrice:-1})
+                                                                            .exec(function (err, arr) {
                                                                                 if (err) {
                                                                                     console.log(err);
                                                                                     console.log(500 + ": Server error");
                                                                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                     res.write(JSON.stringify(resdata));
                                                                                     res.end();
+                                                                                    clearInterval(IntervalID);
                                                                                 }
                                                                                 else {
-                                                                                    for (var i = 0; i < docs.length; i++) {
-                                                                                        for (var j = 0; j < lists.length; j++) {
-                                                                                            if (docs[i].id === lists[j].id) {
-                                                                                                candidate = {
-                                                                                                    auctionID: auctionid,
-                                                                                                    flight: docs[i].flight,
-                                                                                                    name: lists[j].name,
-                                                                                                    id: lists[j].id,
-                                                                                                    tel: lists[j].tel,
-                                                                                                    seat: lists[j].seat,
-                                                                                                    price: docs[i].biddingPrice.toString(),
-                                                                                                    paid: false
-                                                                                                };
-                                                                                                passenger.push(candidate);
-                                                                                                break;
-                                                                                            }
-                                                                                        }
+                                                                                    console.log("today's total number of bidding is " + arr.length);
+                                                                                    for(var m=0;m<arr.length;m++){
+                                                                                        candidateID.push(arr[m].id);
                                                                                     }
-                                                                                    // texting APIs (passenger)
-                                                                                    passenger.forEach(function (doc, index) {
-                                                                                        Wangyiyun_Options.mobiles = doc.tel;
-                                                                                        Wangyiyun_Options.flight = doc.flight;
-                                                                                        Wangyiyun_Options.name = doc.name;
-                                                                                        Wangyiyun_Options.price = doc.price;
-                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                            if(err){
-                                                                                                console.log('ERROR'+err);
-                                                                                            }
-                                                                                            console.log(result);
-                                                                                        });
-                                                                                    });
-                                                                                    console.log("finish texting all winners");
-                                                                                    /*
-                                                                                     passenger.forEach(function (doc, index) {
-                                                                                     Alidayu_options.PhoneNumbers = index.tel;
-                                                                                     Alidayu_options.TemplateParam.flight = index.flight;
-                                                                                     Alidayu_options.TemplateParam.name = index.name;
-                                                                                     Alidayu_options.TemplateParam.price = index.price;
-                                                                                     alidayu.sms(options,function(err,result){
-                                                                                     if(err){
-                                                                                     console.log('ERROR'+err);
-                                                                                     }
-                                                                                     console.log(result);
-                                                                                     });
-                                                                                     });
-                                                                                     */
-                                                                                    // APP sending APIs
-                                                                                    failure = candidateID.slice(docs.length);
-                                                                                    console.log(failure);
-                                                                                    console.log("finish sending all failures");
+                                                                                    console.log("the candidates: " + candidateID);
 
-                                                                                    advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                        if (err) {
-                                                                                            console.log(err);
-                                                                                            console.log(500 + ": Server error");
-                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                            res.write(JSON.stringify(resdata));
-                                                                                            res.end();
-                                                                                        }
-                                                                                        else {
-                                                                                            console.log("advanced auction bidding result saved");
-                                                                                            //console.log(array);
-                                                                                            auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                                                                if (err)
-                                                                                                    console.log(err);
-                                                                                                else {
-                                                                                                    auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
-                                                                                                        if(error)
-                                                                                                            console.log(error);
+                                                                                    biddingResultModel.find({auctionID: auctionid})
+                                                                                        .where("biddingPrice").gte(baseprice)
+                                                                                        .where("biddingTime").gte(doc[0].startTime)
+                                                                                        .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
+                                                                                        .sort({biddingPrice:-1})
+                                                                                        .exec(function (err, docs) {
+                                                                                            if (err) {
+                                                                                                console.log(err);
+                                                                                                console.log(500 + ": Server error");
+                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                res.end();
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                            else if (docs.length !==0 ) {
+                                                                                                console.log("today's above baseprice bidding is " + docs.length);
+                                                                                                var candidate = {};
+                                                                                                var passenger = [];
+                                                                                                var id_Array = [];
+                                                                                                var failure = [];
+                                                                                                if(docs.length >= seat){
+                                                                                                    console.log("No auction seats left");
+                                                                                                    for (var i = 0; i < seat; i++) {
+                                                                                                        id_Array.push(docs[i].id);
+                                                                                                    }
+                                                                                                    flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
+                                                                                                        if (err) {
+                                                                                                            console.log(err);
+                                                                                                            console.log(500 + ": Server error");
+                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                            res.write(JSON.stringify(resdata));
+                                                                                                            res.end();
+                                                                                                        }
                                                                                                         else {
-                                                                                                            console.log('update auctionState to 2');
-                                                                                                            clearInterval(IntervalID);
+                                                                                                            for (var i = 0; i < seat; i++) {
+                                                                                                                for (var j = 0; j < lists.length; j++) {
+                                                                                                                    if (docs[i].id === lists[j].id) {
+                                                                                                                        candidate = {
+                                                                                                                            auctionID: auctionid,
+                                                                                                                            flight: docs[i].flight,
+                                                                                                                            name: lists[j].name,
+                                                                                                                            id: lists[j].id,
+                                                                                                                            tel: lists[j].tel,
+                                                                                                                            seat: lists[j].seat,
+                                                                                                                            price: docs[i].biddingPrice.toString(),
+                                                                                                                            paid: false
+                                                                                                                        };
+                                                                                                                        passenger.push(candidate);
+                                                                                                                        break;
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                            // texting APIs (passenger)
+                                                                                                            passenger.forEach(function (doc, index) {
+                                                                                                                Wangyiyun_Options.mobiles = doc.tel;
+                                                                                                                Wangyiyun_Options.flight = doc.flight;
+                                                                                                                Wangyiyun_Options.name = doc.name;
+                                                                                                                Wangyiyun_Options.price = doc.price;
+                                                                                                                wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                                                    if(err){
+                                                                                                                        console.log('ERROR'+err);
+                                                                                                                    }
+                                                                                                                    console.log(result);
+                                                                                                                });
+                                                                                                            });
+                                                                                                            // APP sending APIs (passenger)
+                                                                                                            passenger.forEach(function (doc, index) {
+                                                                                                                userTokenModel.find({id:doc.id}, function (err, lists) {
+                                                                                                                    if(err){
+                                                                                                                        console.log("Error: " + err);
+                                                                                                                    }
+                                                                                                                    else {
+                                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                        Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                                        xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                            if(err){
+                                                                                                                                console.log('ERROR: '+err);
+                                                                                                                            }
+                                                                                                                            console.log(result);
+                                                                                                                            res.end();
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            });
+                                                                                                            // APP sending APIs (failure)
+                                                                                                            failure = candidateID.slice(seat);
+                                                                                                            failure.forEach(function (doc, index) {
+                                                                                                                userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                    if(err){
+                                                                                                                        console.log("Error: " + err);
+                                                                                                                    }
+                                                                                                                    else {
+                                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                        Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                        xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                            if(err){
+                                                                                                                                console.log('ERROR: '+err);
+                                                                                                                            }
+                                                                                                                            console.log(result);
+                                                                                                                            res.end();
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            });
+                                                                                                            console.log(failure);
+                                                                                                            console.log("finish sending today's all candidates");
+
+                                                                                                            advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
+                                                                                                                if(err){
+                                                                                                                    console.log(err);
+                                                                                                                    console.log(500 + ": Server error");
+                                                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                    res.write(JSON.stringify(resdata));
+                                                                                                                    res.end();
+                                                                                                                }
+                                                                                                                else {
+                                                                                                                    console.log("advanced auction bidding result saved");
+                                                                                                                    //console.log(array);
+                                                                                                                    auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                                                                                        if (err)
+                                                                                                                            console.log(err);
+                                                                                                                        else {
+                                                                                                                            auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                                                                                if(error)
+                                                                                                                                    console.log(error);
+                                                                                                                                else {
+                                                                                                                                    console.log('update auctionState to 2');
+                                                                                                                                    flightManageModel.update({state:0}, function (error) {
+                                                                                                                                        if(error)
+                                                                                                                                            console.log(error);
+                                                                                                                                        else {
+                                                                                                                                            console.log("update flight " + flight + "'s state to 2");
+                                                                                                                                            var winner = candidateID.slice(0,seat);
+                                                                                                                                            flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
+                                                                                                                                                if (err) {
+                                                                                                                                                    console.log(err);
+                                                                                                                                                    console.log(500 + ": Server error");
+                                                                                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                    res.write(JSON.stringify(resdata));
+                                                                                                                                                    res.end();
+                                                                                                                                                }
+                                                                                                                                                else {
+                                                                                                                                                    flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err, docs) {
+                                                                                                                                                        if (err) {
+                                                                                                                                                            console.log(err);
+                                                                                                                                                            console.log(500 + ": Server error");
+                                                                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                            res.write(JSON.stringify(resdata));
+                                                                                                                                                            res.end();
+                                                                                                                                                        }
+                                                                                                                                                        else {
+                                                                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                            res.write(JSON.stringify(resdata));
+                                                                                                                                                            res.end();
+
+                                                                                                                                                            clearInterval(IntervalID);
+                                                                                                                                                        }
+                                                                                                                                                    });
+                                                                                                                                                }
+                                                                                                                                            });
+                                                                                                                                        }
+                                                                                                                                    });
+                                                                                                                                }
+                                                                                                                            });
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                }
+                                                                                                            });
                                                                                                         }
                                                                                                     });
                                                                                                 }
-                                                                                            });
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                        else {
-                                                                            console.log("auction is still proceeding");
-                                                                            flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
-                                                                                if (err) {
-                                                                                    console.log(err);
-                                                                                    console.log(500 + ": Server error");
-                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                    res.write(JSON.stringify(resdata));
-                                                                                    res.end();
-                                                                                }
-                                                                                else {
-                                                                                    for (var i = 0; i < docs.length; i++) {
-                                                                                        for (var j = 0; j < lists.length; j++) {
-                                                                                            if (docs[i].id === lists[j].id) {
-                                                                                                candidate = {
-                                                                                                    auctionID: auctionid,
-                                                                                                    flight: docs[i].flight,
-                                                                                                    name: lists[j].name,
-                                                                                                    id: lists[j].id,
-                                                                                                    tel: lists[j].tel,
-                                                                                                    seat: lists[j].seat,
-                                                                                                    price: docs[i].biddingPrice.toString(),
-                                                                                                    paid: false
-                                                                                                };
-                                                                                                passenger.push(candidate);
-                                                                                                break;
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                    passenger.forEach(function (doc, index) {
-                                                                                        Wangyiyun_Options.mobiles = doc.tel;
-                                                                                        Wangyiyun_Options.flight = doc.flight;
-                                                                                        Wangyiyun_Options.name = doc.name;
-                                                                                        Wangyiyun_Options.price = doc.price;
-                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                            if(err){
-                                                                                                console.log('ERROR'+err);
-                                                                                            }
-                                                                                            console.log(result);
-                                                                                        });
-                                                                                    });
-                                                                                    console.log("finish texting " + passenger.length + " winners on Day " + day_count);
-
-                                                                                    /*
-                                                                                     passenger.forEach(function (doc, index) {
-                                                                                     Alidayu_options.PhoneNumbers = index.tel;
-                                                                                     Alidayu_options.TemplateParam.flight = index.flight;
-                                                                                     Alidayu_options.TemplateParam.name = index.name;
-                                                                                     Alidayu_options.TemplateParam.price = index.price;
-                                                                                     alidayu.sms(options,function(err,result){
-                                                                                     if(err){
-                                                                                     console.log('ERROR'+err);
-                                                                                     }
-                                                                                     console.log(result);
-                                                                                     });
-                                                                                     });
-                                                                                     */
-                                                                                    // APP sending APIs
-                                                                                    failure = candidateID.slice(docs.length);
-                                                                                    console.log(failure);
-                                                                                    console.log("finish sending all failures");
-
-                                                                                    advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                        if (err) {
-                                                                                            console.log(err);
-                                                                                            console.log(500 + ": Server error");
-                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                            res.write(JSON.stringify(resdata));
-                                                                                            res.end();
-                                                                                        }
-                                                                                        else {
-                                                                                            console.log("advanced auction bidding result saved");
-                                                                                            //console.log(array);
-                                                                                            var startTime = Date.parse(new Date());
-                                                                                            return auctionParamModel.update({auctionID: auctionid}, {startTime:startTime, seatnum: now_seat}, function (err) {
-                                                                                                if (err)
-                                                                                                    console.log(err);
                                                                                                 else {
-                                                                                                    console.log("update seatnum to " + now_seat + " on Day " + day_count);
+                                                                                                    var now_seat = seat - docs.length;
+                                                                                                    day_count += 1;
+                                                                                                    for (var j = 0; j < docs.length; j++) {
+                                                                                                        id_Array.push(docs[j].id);
+                                                                                                    }
+                                                                                                    if(day_count >= daynum) {
+                                                                                                        console.log("no auction days left");
+                                                                                                        flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
+                                                                                                            if (err) {
+                                                                                                                console.log(err);
+                                                                                                                console.log(500 + ": Server error");
+                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                res.end();
+                                                                                                            }
+                                                                                                            else {
+                                                                                                                for (var i = 0; i < docs.length; i++) {
+                                                                                                                    for (var j = 0; j < lists.length; j++) {
+                                                                                                                        if (docs[i].id === lists[j].id) {
+                                                                                                                            candidate = {
+                                                                                                                                auctionID: auctionid,
+                                                                                                                                flight: docs[i].flight,
+                                                                                                                                name: lists[j].name,
+                                                                                                                                id: lists[j].id,
+                                                                                                                                tel: lists[j].tel,
+                                                                                                                                seat: lists[j].seat,
+                                                                                                                                price: docs[i].biddingPrice.toString(),
+                                                                                                                                paid: false
+                                                                                                                            };
+                                                                                                                            passenger.push(candidate);
+                                                                                                                            break;
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                                // texting APIs (passenger)
+                                                                                                                passenger.forEach(function (doc, index) {
+                                                                                                                    Wangyiyun_Options.mobiles = doc.tel;
+                                                                                                                    Wangyiyun_Options.flight = doc.flight;
+                                                                                                                    Wangyiyun_Options.name = doc.name;
+                                                                                                                    Wangyiyun_Options.price = doc.price;
+                                                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                                                        if(err){
+                                                                                                                            console.log('ERROR'+err);
+                                                                                                                        }
+                                                                                                                        console.log(result);
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                console.log("finish texting all winners");
+                                                                                                                // APP sending APIs (passenger)
+                                                                                                                passenger.forEach(function (doc, index) {
+                                                                                                                    userTokenModel.find({id:doc.id}, function (err, lists) {
+                                                                                                                        if(err){
+                                                                                                                            console.log("Error: " + err);
+                                                                                                                        }
+                                                                                                                        else {
+                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                                if(err){
+                                                                                                                                    console.log('ERROR: '+err);
+                                                                                                                                }
+                                                                                                                                console.log(result);
+                                                                                                                                res.end();
+                                                                                                                            });
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                // APP sending APIs (failure)
+                                                                                                                failure = candidateID.slice(docs.length);
+                                                                                                                failure.forEach(function (doc, index) {
+                                                                                                                    userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                        if(err){
+                                                                                                                            console.log("Error: " + err);
+                                                                                                                        }
+                                                                                                                        else {
+                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                                if(err){
+                                                                                                                                    console.log('ERROR: '+err);
+                                                                                                                                }
+                                                                                                                                console.log(result);
+                                                                                                                                res.end();
+                                                                                                                            });
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                console.log(failure);
+                                                                                                                console.log("finish sending today's all candidates");
+
+                                                                                                                advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
+                                                                                                                    if (err) {
+                                                                                                                        console.log(err);
+                                                                                                                        console.log(500 + ": Server error");
+                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                                        res.end();
+                                                                                                                    }
+                                                                                                                    else {
+                                                                                                                        console.log("advanced auction bidding result saved");
+                                                                                                                        //console.log(array);
+                                                                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                                                                                            if (err)
+                                                                                                                                console.log(err);
+                                                                                                                            else {
+                                                                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                                                                                    if(error)
+                                                                                                                                        console.log(error);
+                                                                                                                                    else {
+                                                                                                                                        console.log('update auctionState to 2');
+                                                                                                                                        flightManageModel.update({state:0}, function (error) {
+                                                                                                                                            if(error)
+                                                                                                                                                console.log(error);
+                                                                                                                                            else {
+                                                                                                                                                console.log("update flight " + flight + "'s state to 2");
+                                                                                                                                                var winner = candidateID.slice(0,docs.length);
+                                                                                                                                                flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
+                                                                                                                                                    if (err) {
+                                                                                                                                                        console.log(err);
+                                                                                                                                                        console.log(500 + ": Server error");
+                                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                                                                        res.end();
+                                                                                                                                                    }
+                                                                                                                                                    else {
+                                                                                                                                                        flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err, docs) {
+                                                                                                                                                            if (err) {
+                                                                                                                                                                console.log(err);
+                                                                                                                                                                console.log(500 + ": Server error");
+                                                                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                                                                res.end();
+                                                                                                                                                            }
+                                                                                                                                                            else {
+                                                                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                                                                res.end();
+
+                                                                                                                                                                clearInterval(IntervalID);
+                                                                                                                                                            }
+                                                                                                                                                        });
+                                                                                                                                                    }
+                                                                                                                                                });
+                                                                                                                                            }
+                                                                                                                                        });
+                                                                                                                                    }
+                                                                                                                                });
+                                                                                                                            }
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            }
+                                                                                                        });
+                                                                                                    }
+                                                                                                    else {
+                                                                                                        console.log("auction is still proceeding");
+                                                                                                        flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
+                                                                                                            if (err) {
+                                                                                                                console.log(err);
+                                                                                                                console.log(500 + ": Server error");
+                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                res.end();
+                                                                                                            }
+                                                                                                            else {
+                                                                                                                for (var i = 0; i < docs.length; i++) {
+                                                                                                                    for (var j = 0; j < lists.length; j++) {
+                                                                                                                        if (docs[i].id === lists[j].id) {
+                                                                                                                            candidate = {
+                                                                                                                                auctionID: auctionid,
+                                                                                                                                flight: docs[i].flight,
+                                                                                                                                name: lists[j].name,
+                                                                                                                                id: lists[j].id,
+                                                                                                                                tel: lists[j].tel,
+                                                                                                                                seat: lists[j].seat,
+                                                                                                                                price: docs[i].biddingPrice.toString(),
+                                                                                                                                paid: false
+                                                                                                                            };
+                                                                                                                            passenger.push(candidate);
+                                                                                                                            break;
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                                // Texting APIs (passenger)
+                                                                                                                passenger.forEach(function (doc, index) {
+                                                                                                                    Wangyiyun_Options.mobiles = doc.tel;
+                                                                                                                    Wangyiyun_Options.flight = doc.flight;
+                                                                                                                    Wangyiyun_Options.name = doc.name;
+                                                                                                                    Wangyiyun_Options.price = doc.price;
+                                                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                                                        if(err){
+                                                                                                                            console.log('ERROR'+err);
+                                                                                                                        }
+                                                                                                                        console.log(result);
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                console.log("finish texting " + passenger.length + " winners on Day " + day_count);
+                                                                                                                // APP sending APIs (passenger)
+                                                                                                                passenger.forEach(function (doc, index) {
+                                                                                                                    userTokenModel.find({id:doc.id}, function (err, lists) {
+                                                                                                                        if(err){
+                                                                                                                            console.log("Error: " + err);
+                                                                                                                        }
+                                                                                                                        else {
+                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                                if(err){
+                                                                                                                                    console.log('ERROR: '+err);
+                                                                                                                                }
+                                                                                                                                console.log(result);
+                                                                                                                                res.end();
+                                                                                                                            });
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                // APP sending APIs
+                                                                                                                failure = candidateID.slice(docs.length);
+                                                                                                                failure.forEach(function (doc, index) {
+                                                                                                                    userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                        if(err){
+                                                                                                                            console.log("Error: " + err);
+                                                                                                                        }
+                                                                                                                        else {
+                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                                if(err){
+                                                                                                                                    console.log('ERROR: '+err);
+                                                                                                                                }
+                                                                                                                                console.log(result);
+                                                                                                                                res.end();
+                                                                                                                            });
+                                                                                                                        }
+                                                                                                                    });
+                                                                                                                });
+                                                                                                                console.log(failure);
+                                                                                                                console.log("finish sending today's all candidates");
+
+                                                                                                                advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
+                                                                                                                    if (err) {
+                                                                                                                        console.log(err);
+                                                                                                                        console.log(500 + ": Server error");
+                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                                        res.end();
+                                                                                                                    }
+                                                                                                                    else {
+                                                                                                                        console.log("advanced auction bidding result saved");
+                                                                                                                        //console.log(array);
+                                                                                                                        var startTime = Date.parse(new Date());
+                                                                                                                        var winner = candidateID.slice(0,docs.length);
+                                                                                                                        return auctionParamModel.update({auctionID: auctionid}, {startTime:startTime, seatnum: now_seat}, function (err) {
+                                                                                                                            if (err)
+                                                                                                                                console.log(err);
+                                                                                                                            else {
+                                                                                                                                console.log("update seatnum to " + now_seat + " on Day " + day_count);
+                                                                                                                                flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err) {
+                                                                                                                                    if (err) {
+                                                                                                                                        console.log(err);
+                                                                                                                                        console.log(500 + ": Server error");
+                                                                                                                                    }
+                                                                                                                                    else {
+                                                                                                                                        flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
+                                                                                                                                            if (err) {
+                                                                                                                                                console.log(err);
+                                                                                                                                                console.log(500 + ": Server error");
+                                                                                                                                            }
+                                                                                                                                            else {
+                                                                                                                                                console.log("userstatus updated");
+                                                                                                                                            }
+                                                                                                                                        });
+                                                                                                                                    }
+                                                                                                                                });
+                                                                                                                            }
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            }
+                                                                                                        });
+                                                                                                    }
                                                                                                 }
-                                                                                            });
-                                                                                        }
-                                                                                    });
+                                                                                            }
+                                                                                            else {
+                                                                                                console.log("today's above baseprice bidding is " + docs.length);
+                                                                                                day_count += 1;
+
+                                                                                                if(day_count >= daynum) {
+                                                                                                    console.log("no auction days left");
+                                                                                                    if(arr.length !== 0) {
+                                                                                                        failure = candidateID.slice(0);
+                                                                                                        console.log(failure);
+                                                                                                        // APP sending APIs
+                                                                                                        failure.forEach(function (doc, index) {
+                                                                                                            userTokenModel.find({id: doc}, function (err, lists) {
+                                                                                                                if (err) {
+                                                                                                                    console.log("Error: " + err);
+                                                                                                                }
+                                                                                                                else {
+                                                                                                                    Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                    Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                    Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                    xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                        if (err) {
+                                                                                                                            console.log('ERROR: ' + err);
+                                                                                                                        }
+                                                                                                                        console.log(result);
+                                                                                                                        res.end();
+                                                                                                                    });
+                                                                                                                }
+                                                                                                            });
+                                                                                                        });
+                                                                                                        console.log("finish sending today's all candidates");
+
+                                                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                                                                            if (err)
+                                                                                                                console.log(err);
+                                                                                                            else {
+                                                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState: 2}, function (error) {
+                                                                                                                    if (error)
+                                                                                                                        console.log(error);
+                                                                                                                    else {
+                                                                                                                        console.log('update auctionState to 2');
+                                                                                                                        flightManageModel.update({state: 0}, function (error) {
+                                                                                                                            if (error)
+                                                                                                                                console.log(error);
+                                                                                                                            else {
+                                                                                                                                console.log("update flight " + flight + "'s state to 2");
+                                                                                                                                flightInfoModel.update({id: {$in: failure}}, {userstatus: 0}, {multi: true}, function (err, docs) {
+                                                                                                                                    if (err) {
+                                                                                                                                        console.log(err);
+                                                                                                                                        console.log(500 + ": Server error");
+                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                                                        res.end();
+                                                                                                                                    }
+                                                                                                                                    else {
+                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                                                        res.end();
+
+                                                                                                                                        clearInterval(IntervalID);
+                                                                                                                                    }
+                                                                                                                                });
+                                                                                                                            }
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            }
+                                                                                                        });
+                                                                                                    }
+                                                                                                }
+                                                                                                else {
+                                                                                                    console.log("auction is still proceeding");
+                                                                                                    if(arr.length !== 0) {
+                                                                                                        failure = candidateID.slice(0);
+                                                                                                        console.log(failure);
+                                                                                                        // APP sending APIs
+                                                                                                        failure.forEach(function (doc, index) {
+                                                                                                            userTokenModel.find({id:doc}, function (err, lists) {
+                                                                                                                if(err){
+                                                                                                                    console.log("Error: " + err);
+                                                                                                                }
+                                                                                                                else {
+                                                                                                                    Xinge_Option.device_token = lists[0].deviceToken;
+                                                                                                                    Xinge_Option.message.title = "Flight updating service message";
+                                                                                                                    Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                                    xinge.send(Xinge_Option, function (err, result) {
+                                                                                                                        if(err){
+                                                                                                                            console.log('ERROR: '+err);
+                                                                                                                        }
+                                                                                                                        console.log(result);
+                                                                                                                        res.end();
+                                                                                                                    });
+                                                                                                                }
+                                                                                                            });
+                                                                                                        });
+                                                                                                        console.log("finish sending today's all candidates");
+                                                                                                    }
+
+                                                                                                    var startTime = Date.parse(new Date());
+                                                                                                    return auctionParamModel.update({auctionID: auctionid}, {
+                                                                                                        startTime: startTime,
+                                                                                                        seatnum: seat
+                                                                                                    }, function (err) {
+                                                                                                        if (err)
+                                                                                                            console.log(err);
+                                                                                                        else {
+                                                                                                            console.log("update seatnum to " + seat + " on Day " + day_count);
+                                                                                                            flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
+                                                                                                                if (err) {
+                                                                                                                    console.log(err);
+                                                                                                                    console.log(500 + ": Server error");
+                                                                                                                }
+                                                                                                                else {
+                                                                                                                    console.log("userstatus updated");
+                                                                                                                }
+                                                                                                            });
+                                                                                                        }
+                                                                                                    });
+                                                                                                }
+                                                                                            }
+                                                                                        });
                                                                                 }
                                                                             });
-                                                                        }
                                                                     }
-                                                                }
-                                                            });
-                                                    }
-                                                });
+                                                                });
+                                                            };
+                                                            var IntervalID = setInterval(updateState, TIMELAP * 1000);
+                                                        }
+                                                    });
+                                                }
+                                            });
                                         }
-                                    });
-                                };
-                                var IntervalID = setInterval(updateState, TIMELAP * 1000);
+                                        else {
+                                            console.log(403 + ': repeated auction id save failure');
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                    }
+                                });
                             }
                         });
                     }
-                    else {
-                        console.log(403 + ': repeated auction id save failure');
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
-                        res.end();
-                    }
-                }
-            });
+                });
+            }
         }
     });
 });

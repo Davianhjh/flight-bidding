@@ -1,0 +1,96 @@
+<html>
+<%-head %>
+
+<body class="gray-bg">
+
+<div id="app">
+    <div class="wrapper wrapper-content">
+    <div class="container">
+
+    <div class="row"> 
+    <div class="col-lg-12">
+        <div class="ibox">
+            <br />
+            <!-- <div class="ibox-title">
+                <h3>查看航班信息：</h3>
+            </div> -->
+            <div class="ibox-content">
+                <!-- 航班信息 -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="m-b-md">
+                        <h2>{{flight}} 航班详细信息</h2>
+                        </div>
+                    <dl class="dl-horizontal">
+                        <dt>状态:</dt> <dd><span class="label label-primary">{{auctionState}}</span></dd>
+                        </dl>
+                    </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <dl class="dl-horizontal">
+                            <dt>日期 :</dt> <dd> {{date}} </dd>
+                            <dt>起降地点 :</dt> <dd> {{origin}} - {{destination}} </dd>
+                            <dt>起降时间 :</dt> <dd class="text-navy"> {{departure}} - {{landing}} </dd>
+                            <dt>竞拍开始时间 :</dt> <dd> {{startTime}} </dd>
+                        </dl>
+                    </div>
+                    <div class="col-lg-6">
+                        <dl class="dl-horizontal">
+                            <dt>竞拍策略 :</dt> <dd> <span class="label label-primary">{{auctionType}}</span></dd>
+                            <dt>竞拍底价 :</dt> <dd> {{basePrice}} 元 </dd>
+                            <dt>座位数 :</dt> <dd> {{seat}} 个 </dd>
+                            <!-- <dt>竞拍结束时间 :</dt> <dd> 2017-08-07  21:50 </dd> -->
+                        </dl>
+                    </div>
+                </div>
+                </div>
+                <!-- 结果列表 -->
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="ibox float-e-margins">
+                            <div class="ibox-content">
+                                <div class="row">
+                                    <div class="col-sm-9 m-b-xs">
+                                        <h3>本次航拍竞拍结果</h3>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="input-group">
+                                            <input type="text" placeholder="Search" class="input-sm form-control"> 
+                                            <span class="input-group-btn">
+                                                <button type="button" class="btn btn-sm btn-primary"> Go!</button> 
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <br />
+                                <div class="row">
+                                    <template>
+                                        <el-table :data="tableData" style="min-width: 100%">
+                                        <el-table-column prop="name" label="姓名" style="min-width: auto">
+                                        </el-table-column>
+                                        <el-table-column prop="tel" label="手机号" style="min-width: auto">
+                                        </el-table-column>
+                                        <el-table-column prop="seat" label="座位号" style="min-width: auto">
+                                        </el-table-column>
+                                            <el-table-column prop="price" label="出价(元)" style="min-width: auto">
+                                            </el-table-column>
+                                            <el-table-column prop="paid" label="是否支付" style="min-width: auto">
+                                            </el-table-column>
+                                        </el-table>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    </div>
+    </div>
+</div>
+</body>
+
+</html>
