@@ -8,6 +8,20 @@ db.on('error', function(error) {
     console.log(error);
 });
 
+var lotteryRecordSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    flight: { type:String },
+    id: { type:String },
+    name: { type:String },
+    tel: { type:String },
+    seat: { type:String },
+    lotterynum: { type:Number },
+    luckyRegion: { type:Array },
+    luckynum: { type:Number },
+    total: { type:Number }
+}, {collection:"lotteryRecord"});
+var lotteryRecordModel = db.model("lotteryRecord", lotteryRecordSchema,"lotteryRecord");
+
 var flightManageSchema = new mongoose.Schema({
     id: { type:String },
     flight: { type:String },
@@ -20,16 +34,17 @@ var flightManageSchema = new mongoose.Schema({
 },{collection:"flightManage"});
 var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage");
 
-var biddingResultSchema = new mongoose.Schema({
-    auctionID : { type:String },
+var auctionResultSchema = new mongoose.Schema({
+    auctionID: { type:String },
     flight: { type:String },
+    name: { type:String },
     id: { type:String },
-    biddingPrice: { type:Number },
+    tel: { type:String },
     seat: { type:String },
-    paymentState: { type:Boolean },
-    paymentPrice:{ type:Number }
-},{collection:"biddingResult"});
-var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
+    price: { type:String },
+    paid: { type:Boolean }
+},{collection:"auctionResult"});
+var auctionResultModel = db.model("auctionResult", auctionResultSchema,"auctionResult");
 
 var advancedAuctionResultSchema = new mongoose.Schema({
     auctionID: { type:String },
@@ -63,13 +78,6 @@ var auctionFlightManageSchema = new mongoose.Schema({
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
-var flightInfoSchema = new mongoose.Schema({
-    id: { type:String },
-    name: { type:String },
-    tel: { type:String }
-},{collection:"flightInfo"});
-var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
-
 var adminTokenSchema = new mongoose.Schema({
     Token: {type: String}
 },{collection:"userToken"});
@@ -93,9 +101,18 @@ function dateFormat(nowDate) {
     return nowDate.getFullYear() + "-" + zeroFill(nowDate.getMonth() + 1) + "-" + zeroFill(nowDate.getDate()) + " " + zeroFill(nowDate.getHours()) + ":" + zeroFill(nowDate.getMinutes());
 }
 
+function regionFormat(arr){
+    var res = [];
+    for(var i=0;i<arr.length;i++){
+        var length = arr[i].length;
+        var start = arr[i][0];
+        var end = arr[i][length-1];
+        res[i] = [start, end];
+    }
+    return res;
+}
+
 router.post('/', function (req, res, next) {
-    var passenger = [];
-    var candidate = {};
     var flight = req.body.flight;
     var date = req.body.date;
     var token = req.headers['agi-token'];
@@ -127,6 +144,7 @@ router.post('/', function (req, res, next) {
         }
         else {
             if (docs.length === 0) {
+                console.log(token);
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
                 res.writeHead(200, {'Content-Type': 'application/json'});
@@ -202,121 +220,7 @@ router.post('/', function (req, res, next) {
                                                 var startDate = new Date(arr[0].startTime);
                                                 resdata.startTime = dateFormat(startDate);
                                                 resdata.seat = arr[0].seatnum;
-                                                if(resdata.auctionType === 1 || resdata.auctionType === 2 || resdata.auctionType === 3){
-                                                    biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            if (docs.length === 0) {
-                                                                console.log(404 + ": auctionID not found in auctionResult");
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
-                                                                res.end();
-                                                            }
-                                                            else {
-                                                                var candidateID = [];
-                                                                for (var i = 0; i < resdata.seat && i < docs.length; i++)
-                                                                    candidateID.push(docs[i].id);
-                                                                flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
-                                                                    if (err) {
-                                                                        console.log(err);
-                                                                        console.log(500 + ": Server error");
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                    else {
-                                                                        for (var i = 0; i < docs.length && i < resdata.seat; i++) {
-                                                                            for (var j = 0; j < lists.length; j++) {
-                                                                                if (docs[i].id === lists[j].id) {
-                                                                                    candidate = {
-                                                                                        name: lists[j].name,
-                                                                                        tel: lists[j].tel,
-                                                                                        seat: docs[i].seat,
-                                                                                        price: docs[i].biddingPrice.toString(),
-                                                                                        paid: docs[i].paymentState
-                                                                                    };
-                                                                                    if(docs[i].paymentState)
-                                                                                        candidate.paid = PAIED;
-                                                                                    else candidate.paid = UNPAIED;
-                                                                                    passenger.push(candidate);
-                                                                                    break;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        resdata.person = passenger;
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                });
-                                                            }
-                                                        }
-                                                    });
-                                                }
-                                                else if(resdata.auctionType === 4){
-                                                    biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: 1}).exec(function (err, docs) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            if (docs.length === 0) {
-                                                                console.log(404 + ": auctionID not found in biddingResult");
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
-                                                                res.end();
-                                                            }
-                                                            else {
-                                                                var candidateID = [];
-                                                                for (var i = 0; i < resdata.seat && i < docs.length; i++)
-                                                                    candidateID.push(docs[i].id);
-                                                                flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
-                                                                    if (err) {
-                                                                        console.log(err);
-                                                                        console.log(500 + ": Server error");
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                    else {
-                                                                        for (var i = 0; i < docs.length && i < resdata.seat; i++) {
-                                                                            for (var j = 0; j < lists.length; j++) {
-                                                                                if (docs[i].id === lists[j].id) {
-                                                                                    candidate = {
-                                                                                        name: lists[j].name,
-                                                                                        tel: lists[j].tel,
-                                                                                        seat: docs[i].seat,
-                                                                                        price: docs[i].biddingPrice.toString(),
-                                                                                        paid: docs[i].paymentState
-                                                                                    };
-                                                                                    if(docs[i].paymentState)
-                                                                                        candidate.paid = PAIED;
-                                                                                    else candidate.paid = UNPAIED;
-                                                                                    passenger.push(candidate);
-                                                                                    break;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        resdata.person = passenger;
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                });
-                                                            }
-                                                        }
-                                                    });
-                                                }
-                                                else if(resdata.auctionType === 5){
+                                                if(resdata.auctionType === 5){
                                                     advancedAuctionResultModel.find({auctionID:auctionid}, function (err, lists) {
                                                         if(err){
                                                             console.log(err);
@@ -341,14 +245,109 @@ router.post('/', function (req, res, next) {
                                                                         price: lists[i].price,
                                                                         paid: lists[i].paid
                                                                     };
-                                                                    if(docs[i].paymentState)
-                                                                        candidate.paid = PAIED;
-                                                                    else candidate.paid = UNPAIED;
+                                                                    if(lists[i].paid)
+                                                                        data.paid = PAIED;
+                                                                    else data.paid = UNPAIED;
                                                                     resdata.person.push(data);
                                                                 }
                                                                 res.writeHead(200, {'Content-Type': 'application/json'});
                                                                 res.write(JSON.stringify(resdata));
                                                                 res.end();
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                                else if(resdata.auctionType === 1 || resdata.auctionType === 2 || resdata.auctionType === 3 || resdata.auctionType === 4){
+                                                    auctionResultModel.find({auctionID: auctionid}).exec(function (err, lists) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                            console.log(500 + ": Server error");
+                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                            res.write(JSON.stringify(resdata));
+                                                            res.end();
+                                                        }
+                                                        else {
+                                                            if (docs.length === 0) {
+                                                                console.log(404 + ": auctionID not found in auctionResult");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                for(var i=0; i<lists.length; i++){
+                                                                    var data = {
+                                                                        name: lists[i].name,
+                                                                        tel: lists[i].tel,
+                                                                        seat: lists[i].seat,
+                                                                        price: lists[i].price,
+                                                                        paid: lists[i].paid
+                                                                    };
+                                                                    if(lists[i].paid)
+                                                                        data.paid = PAIED;
+                                                                    else data.paid = UNPAIED;
+                                                                    resdata.person.push(data);
+                                                                }
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                                else if(resdata.auctionType === 6){
+                                                    //TODO lottery result show
+                                                    auctionParamModel.find({auctionID: auctionid}, function (err, docs) {
+                                                        if (err) {
+                                                            console.log(err);
+                                                            console.log(500 + ": Server error");
+                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                            res.write(JSON.stringify(resdata));
+                                                            res.end();
+                                                        }
+                                                        else {
+                                                            if (docs.length === 0) {
+                                                                console.log(404 + ": auctionID not found in auctionParam");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                lotteryRecordModel.find({auctionID:auctionid}, function (err, docs) {
+                                                                    if(err){
+                                                                        console.log(err);
+                                                                        console.log(500 + ": Server error");
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                    else {
+                                                                        if(docs.length === 0){
+                                                                            console.log("Error: lotteryRecord not found / lottery not ended yet");
+                                                                            resdata.timestamp = Date.parse(new Date());
+                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                            res.write(JSON.stringify(resdata));
+                                                                            res.end();
+                                                                        }
+                                                                        else {
+                                                                            resdata.timestamp = Date.parse(new Date());
+                                                                            resdata.lucky = docs[0].luckynum;
+                                                                            resdata.total = docs[0].total;
+                                                                            if(docs.id !== "") {
+                                                                                var data = {
+                                                                                    name: docs[0].name,
+                                                                                    tel: docs[0].tel,
+                                                                                    seat: docs[0].seat,
+                                                                                    lotterynum: docs[0].lotterynum,
+                                                                                    luckyRegion: regionFormat(docs[0].luckyRegion)
+                                                                                };
+                                                                                resdata.person.push(data);
+                                                                            }
+                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                            res.write(JSON.stringify(resdata));
+                                                                            res.end();
+                                                                        }
+                                                                    }
+                                                                });
                                                             }
                                                         }
                                                     });

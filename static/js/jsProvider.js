@@ -39,7 +39,14 @@ var scripts = {
     // 功能页面js
     login: fs.readFileSync(process.cwd()+"/components/home/index.js", 'utf-8'),
     fightslist: fs.readFileSync(process.cwd()+"/components/fightsList/fightslist.js", 'utf-8'),
-    result: fs.readFileSync(process.cwd()+"/components/result/result.js", 'utf-8')
+    result: fs.readFileSync(process.cwd()+"/components/result/result.js", 'utf-8'),
+
+    // element引用
+    agielement: fs.readFileSync(process.cwd()+"/static/js/element.js", 'utf-8'),
+    agielementfonts: fs.readFileSync(process.cwd()+"/static/js/element.js", 'utf-8')
+    // element模块引用
+    // agielementTable: fs.readFileSync(process.cwd()+"/node_modules/element-ui/lib/table.js", 'utf-8'),
+    // agielementTablecolumn: fs.readFileSync(process.cwd()+"/node_modules/element-ui/lib/table-column.js", 'utf-8')
 }
 router.get("/:path", function(req, res, next){
     switch(req.params.path){
@@ -68,6 +75,20 @@ router.get("/:path", function(req, res, next){
             res.header("Content-Type", "application/javascript");
             res.write(scripts.result);
             break;
+        // element 引用
+        case "element.js":
+            res.header("Content-Type", "application/javascript");
+            res.write(scripts.agielement); 
+            break;
+        // element模块引用
+        // case "table.js":
+        //     res.header("Content-Type", "application/javascript");
+        //     res.write(scripts.agielementTable); 
+        //     break;
+        // case "table-column.js":
+        //     res.header("Content-Type", "application/javascript");
+        //     res.write(scripts.agielementTablecolumn); 
+        //     break;                    
         // Mainly scripts
         case "bootstrap.min.js":
             res.header("Content-Type", "application/javascript");

@@ -191,7 +191,6 @@ router.get('/', function (req, res, next) {
                                 }
                             });
                         }
-
                         else {
                             console.log(403 + ": query params error");
                             res.writeHead(200, {'Content-Type': 'application/json'});

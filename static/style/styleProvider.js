@@ -13,7 +13,8 @@ var cssmap = {
     awesome: fs.readFileSync(process.cwd()+"/static/style/font-awesome/css/font-awesome.css", 'utf-8'),
     animate: fs.readFileSync(process.cwd()+"/static/style/css/animate.css", 'utf-8'),
     agistyle: fs.readFileSync(process.cwd()+"/static/style/css/style.css", 'utf-8'),
-    agiresult: fs.readFileSync(process.cwd()+"/static/style/css/result.css", 'utf-8')
+    agiresult: fs.readFileSync(process.cwd()+"/static/style/css/result.css", 'utf-8'),
+    agielement: fs.readFileSync(process.cwd()+"/static/style/css/element.css", 'utf-8')
 }
 
 require.extensions['.less'] = function(module, filename){
@@ -41,6 +42,11 @@ router.get("/:css", function(req, res, next){
     });
 
     switch (css) {
+        case "element.css":
+            res.header("Content-Type", "text/css");
+            res.write(cssmap.agielement);
+            res.end();
+            break;        
         case "common.css":
             res.header("Content-Type", "text/css");
             res.write(cssmap.common);

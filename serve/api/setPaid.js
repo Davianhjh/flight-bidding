@@ -15,6 +15,18 @@ var biddingResultSchema = new mongoose.Schema({
 },{collection:"biddingResult"});
 var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
 
+var auctionResultSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    flight: { type:String },
+    name: { type:String },
+    id: { type:String },
+    tel: { type:String },
+    seat: { type:String },
+    price: { type:String },
+    paid: { type:Boolean }
+},{collection:"auctionResult"});
+var auctionResultModel = db.model("auctionResult", auctionResultSchema,"auctionResult");
+
 var flightInfoSchema = new mongoose.Schema({
     id: { type:String },
     flight: { type: String },
@@ -104,11 +116,22 @@ router.post('/', function (req, res, next) {
                                             res.end();
                                         }
                                         else {
-                                            resdata.paid = true;
-                                            console.log("Update paymentState success");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
+                                            auctionResultModel.update({auctionID:auctionid,id:id},{paid:true}, function (err) {
+                                               if(err){
+                                                   console.log(err);
+                                                   console.log(500 + ": Server error");
+                                                   res.writeHead(200, {'Content-Type': 'application/json'});
+                                                   res.write(JSON.stringify(resdata));
+                                                   res.end();
+                                               }
+                                               else {
+                                                   resdata.paid = true;
+                                                   console.log("Update paymentState success");
+                                                   res.writeHead(200, {'Content-Type': 'application/json'});
+                                                   res.write(JSON.stringify(resdata));
+                                                   res.end();
+                                               }
+                                            });
                                         }
                                     });
                                 }

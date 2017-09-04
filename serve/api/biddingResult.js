@@ -8,30 +8,42 @@ db.on('error', function(error) {
     console.log(error);
 });
 
-var biddingResultSchema = new mongoose.Schema({
-    auctionID : { type:String },
-    flight: { type:String },
-    id: { type:String },
-    biddingPrice: { type:Number },
-    seat: { type:String },
-    paymentState: { type:Boolean },
-    paymentPrice:{ type:Number }
-},{collection:"biddingResult"});
-var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
-
-var auctionParamSchema = new mongoose.Schema({
-    auctionID: { type:String },
-    auctionType: { type:Number },
-    seatnum: { type:Number }
-},{collection:"auctionParam"});
-var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
-
 var flightInfoSchema = new mongoose.Schema({
     id: { type:String },
     name: { type:String },
     tel: { type:String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+
+var biddingResultSchema = new mongoose.Schema({
+    auctionID : { type:String },
+    flight: { type:String },
+    id: { type:String },
+    biddingPrice: { type:Number },
+    seat: { type:String },
+    paymentState: { type:Boolean }
+},{collection:"biddingResult"});
+var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
+
+var auctionResultSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    flight: { type:String },
+    name: { type:String },
+    id: { type:String },
+    tel: { type:String },
+    seat: { type:String },
+    price: { type:Number },
+    paid: { type:Boolean }
+},{collection:"auctionResult"});
+var auctionResultModel = db.model("auctionResult", auctionResultSchema,"auctionResult");
+
+var auctionParamSchema = new mongoose.Schema({
+    auctionID: { type:String },
+    auctionType: { type:Number },
+    seatnum: { type:Number },
+    baseprice: { type:Number }
+},{collection:"auctionParam"});
+var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
 var serverTokenSchema = new mongoose.Schema({
     Token: { type:String }
@@ -54,8 +66,6 @@ router.use(bodyParser.urlencoded({extended: true}));
 
 
 router.post('/', function (req, res, next) {
-    var passenger = [];
-    var candidate = {};
     var flight = req.body.flight;
     var auctionid = req.body.auctionid;
     var token = req.headers['agi-token'];
@@ -63,7 +73,7 @@ router.post('/', function (req, res, next) {
     var resdata = {
         result: 1,
         timestamp: -1,
-        flight: -1,
+        flight: flight,
         person: []
     };
     serverTokenModel.find({Token: token}, function (err, docs) {
@@ -112,125 +122,137 @@ router.post('/', function (req, res, next) {
                                 else {
                                     var seatnum = docs[0].seatnum;
                                     var auctionType = docs[0].auctionType;
+                                    var baseprice = docs[0].baseprice;
+                                    var candidate = {};
                                     var candidateID = [];
+                                    var passenger = [];
                                     var winner = [];
+
                                     if(auctionType !== 4) {
-                                        biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
-                                            if (err) {
-                                                console.log(err);
-                                                console.log(500 + ": Server error");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
-                                            }
-                                            else {
-                                                if (docs.length === 0) {
-                                                    console.log(404 + ": auctionID not found in auctionResult");
+                                        biddingResultModel.find({auctionID: auctionid})
+                                            .where('biddingPrice').gte(baseprice)
+                                            .sort({biddingPrice: -1})
+                                            .exec(function (err, docs) {
+                                                if (err) {
+                                                    console.log(err);
+                                                    console.log(500 + ": Server error");
                                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                                     res.write(JSON.stringify(resdata));
                                                     res.end();
                                                 }
                                                 else {
-                                                    for (var i = 0; i < docs.length; i++) {
-                                                        if(i < seatnum)
-                                                            winner.push(docs[i].id);
-                                                        candidateID.push(docs[i].id);
+                                                    if (docs.length === 0) {
+                                                        console.log("No passenger won");
+                                                        resdata.timestamp = Date.parse(new Date());
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
                                                     }
-                                                    flightInfoModel.find({id: {$in: winner}}, function (err, lists) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
+                                                    else {
+                                                        for (var i = 0; i < docs.length; i++) {
+                                                            if (i < seatnum)
+                                                                winner.push(docs[i].id);
+                                                            candidateID.push(docs[i].id);
                                                         }
-                                                        else {
-                                                            for (var i = 0; i < docs.length && i < seatnum; i++) {
-                                                                for (var j = 0; j < lists.length; j++) {
-                                                                    if (docs[i].id === lists[j].id) {
-                                                                        candidate = {
-                                                                            id: lists[j].id,
-                                                                            name: lists[j].name,
-                                                                            tel: lists[j].tel,
-                                                                            seat: docs[i].seat,
-                                                                            price: docs[i].biddingPrice.toString(),
-                                                                            paid: docs[i].paymentState
-                                                                        };
-                                                                        passenger.push(candidate);
-                                                                        break;
+                                                        flightInfoModel.find({id: {$in: winner}}, function (err, lists) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                for (var i = 0; i < docs.length && i < seatnum; i++) {
+                                                                    for (var j = 0; j < lists.length; j++) {
+                                                                        if (docs[i].id === lists[j].id) {
+                                                                            candidate = {
+                                                                                id: lists[j].id,
+                                                                                name: lists[j].name,
+                                                                                tel: lists[j].tel,
+                                                                                seat: docs[i].seat,
+                                                                                price: docs[i].biddingPrice.toString(),
+                                                                                paid: docs[i].paymentState
+                                                                            };
+                                                                            passenger.push(candidate);
+                                                                            break;
+                                                                        }
                                                                     }
                                                                 }
+                                                                resdata.timestamp = Date.parse(new Date());
+                                                                resdata.flight = flight;
+                                                                resdata.person = passenger;
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
                                                             }
-                                                            resdata.timestamp = Date.parse(new Date());
-                                                            resdata.flight = flight;
-                                                            resdata.person = passenger;
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                    });
+                                                        });
+                                                    }
                                                 }
-                                            }
-                                        });
+                                            });
                                     }
                                     else {
-                                        biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: 1}).exec(function (err, docs) {
-                                            if (err) {
-                                                console.log(err);
-                                                console.log(500 + ": Server error");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
-                                            }
-                                            else {
-                                                if (docs.length === 0) {
-                                                    console.log(404 + ": auctionID not found in biddingResult");
+                                        biddingResultModel.find({auctionID: auctionid})
+                                            .where("biddingPrice").lte(baseprice)
+                                            .sort({biddingPrice: 1})
+                                            .exec(function (err, docs) {
+                                                if (err) {
+                                                    console.log(err);
+                                                    console.log(500 + ": Server error");
                                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                                     res.write(JSON.stringify(resdata));
                                                     res.end();
                                                 }
                                                 else {
-                                                    for (var i = 0; i < docs.length; i++) {
-                                                        if(i < seatnum)
-                                                            winner.push(docs[i].id);
-                                                        candidateID.push(docs[i].id);
+                                                    if (docs.length === 0) {
+                                                        console.log("No participate");
+                                                        resdata.timestamp = Date.parse(new Date());
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
                                                     }
-                                                    flightInfoModel.find({id: {$in: candidateID}}, function (err, lists) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
+                                                    else {
+                                                        for (var i = 0; i < docs.length; i++) {
+                                                            if (i < seatnum)
+                                                                winner.push(docs[i].id);
+                                                            candidateID.push(docs[i].id);
                                                         }
-                                                        else {
-                                                            for (var i = 0; i < docs.length && i < seatnum; i++) {
-                                                                for (var j = 0; j < lists.length; j++) {
-                                                                    if (docs[i].id === lists[j].id) {
-                                                                        candidate = {
-                                                                            id: lists[j].id,
-                                                                            name: lists[j].name,
-                                                                            tel: lists[j].tel,
-                                                                            seat: docs[i].seat,
-                                                                            price: docs[i].biddingPrice.toString(),
-                                                                            paid: docs[i].paymentState
-                                                                        };
-                                                                        passenger.push(candidate);
-                                                                        break;
+                                                        flightInfoModel.find({id: {$in: winner}}, function (err, lists) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                for (var i = 0; i < docs.length && i < seatnum; i++) {
+                                                                    for (var j = 0; j < lists.length; j++) {
+                                                                        if (docs[i].id === lists[j].id) {
+                                                                            candidate = {
+                                                                                id: lists[j].id,
+                                                                                name: lists[j].name,
+                                                                                tel: lists[j].tel,
+                                                                                seat: docs[i].seat,
+                                                                                price: docs[i].biddingPrice.toString(),
+                                                                                paid: docs[i].paymentState
+                                                                            };
+                                                                            passenger.push(candidate);
+                                                                            break;
+                                                                        }
                                                                     }
                                                                 }
+                                                                resdata.timestamp = Date.parse(new Date());
+                                                                resdata.flight = flight;
+                                                                resdata.person = passenger;
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
                                                             }
-                                                            resdata.timestamp = Date.parse(new Date());
-                                                            resdata.flight = flight;
-                                                            resdata.person = passenger;
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                    });
+                                                        });
+                                                    }
                                                 }
-                                            }
-                                        });
+                                            });
                                     }
                                 }
                             }
@@ -254,7 +276,8 @@ router.get('/',function (req, res, next) {
         rank: -1,
         seats: -1,
         hit: 0,
-        price: -1
+        price: -1,
+        paid: false
     };
     userTokenModel.find({Token:token}, function (err, docs) {
         if (err) {
@@ -300,69 +323,19 @@ router.get('/',function (req, res, next) {
                                     res.end();
                                 }
                                 else {
+                                    var condition = {};
                                     var seatnum = docs[0].seatnum;
                                     var auctionType = docs[0].auctionType;
-                                    var paymentPrice = 0;
                                     resdata.seats = seatnum;
                                     resdata.auctionType = auctionType;
-                                    if(auctionType !== 4) {
-                                        biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: -1}).exec(function (err, docs) {
-                                            if (err) {
-                                                console.log(err);
-                                                console.log(500 + ": Server error");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
-                                            }
-                                            else {
-                                                if (docs.length === 0) {
-                                                    console.log(404 + ": auctionID not found in auctionResult");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else {
-                                                    var result = false;
-                                                    for (var i = 0; i < docs.length; i++) {
-                                                        if (docs[i].id === passengerID) {
-                                                            result = i + 1;
-                                                            resdata.rank = result;
-                                                            resdata.price = docs[i].biddingPrice;
-                                                            resdata.paid = docs[i].paymentState;
-                                                        }
-                                                    }
-                                                    if (result <= seatnum && result !== false) {
-                                                        resdata.hit = 1;
-                                                        if (auctionType === 1 || auctionType === 3)
-                                                            paymentPrice = resdata.price;
-                                                        else if (auctionType === 2 && seatnum >= docs.length)
-                                                            paymentPrice = docs[docs.length-1].biddingPrice;
-                                                        else if(auctionType === 2 && seatnum < docs.length)
-                                                            paymentPrice = docs[seatnum].biddingPrice;
-                                                    }
-                                                    biddingResultModel.update({
-                                                        auctionID: auctionid,
-                                                        id: passengerID
-                                                    }, {paymentPrice: paymentPrice}, function (err) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                    });
-                                                }
-                                            }
-                                        });
-                                    }
+                                    if(auctionType === 4)
+                                        condition = {biddingPrice: 1};
                                     else {
-                                        biddingResultModel.find({auctionID: auctionid}).sort({biddingPrice: 1}).exec(function (err, docs) {
+                                        condition = {biddingPrice: -1};
+                                    }
+                                    biddingResultModel.find({auctionID:auctionid})
+                                        .sort(condition)
+                                        .exec(function (err, docs) {
                                             if (err) {
                                                 console.log(err);
                                                 console.log(500 + ": Server error");
@@ -371,30 +344,20 @@ router.get('/',function (req, res, next) {
                                                 res.end();
                                             }
                                             else {
-                                                if (docs.length === 0) {
-                                                    console.log(404 + ": auctionID not found in auctionResult");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else {
-                                                    var result = false;
-                                                    for (var i = 0; i < docs.length; i++) {
-                                                        if (docs[i].id === passengerID) {
-                                                            result = i + 1;
-                                                            resdata.rank = result;
-                                                            resdata.price = docs[i].biddingPrice;
-                                                            resdata.paid = docs[i].paymentState;
+                                                for(var j = 0; j < docs.length; j++){
+                                                    if(docs[j].id === passengerID) {
+                                                        resdata.rank = j + 1;
+                                                        if(auctionType === 2){
+                                                            resdata.initial = docs[j].biddingPrice;
+                                                        }
+                                                        else {
+                                                            resdata.price = docs[j].biddingPrice;
                                                         }
                                                     }
-                                                    if (result <= seatnum && result !== false) {
-                                                        resdata.hit = 1;
-                                                        paymentPrice = resdata.price;
-                                                    }
-                                                    biddingResultModel.update({
-                                                        auctionID: auctionid,
-                                                        id: passengerID
-                                                    }, {paymentPrice: paymentPrice}, function (err) {
+                                                }
+                                                auctionResultModel.find({auctionID: auctionid})
+                                                    .sort(condition)
+                                                    .exec(function (err, lists) {
                                                         if (err) {
                                                             console.log(err);
                                                             console.log(500 + ": Server error");
@@ -403,15 +366,21 @@ router.get('/',function (req, res, next) {
                                                             res.end();
                                                         }
                                                         else {
+                                                            for (var i = 0; i < lists.length; i++) {
+                                                                if (lists[i].id === passengerID) {
+                                                                    resdata.hit = 1;
+                                                                    resdata.price = lists[i].price;
+                                                                    resdata.paid = lists[i].paid;
+                                                                    break;
+                                                                }
+                                                            }
                                                             res.writeHead(200, {'Content-Type': 'application/json'});
                                                             res.write(JSON.stringify(resdata));
                                                             res.end();
                                                         }
                                                     });
-                                                }
                                             }
                                         });
-                                    }
                                 }
                             }
                         });

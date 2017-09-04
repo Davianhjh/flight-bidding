@@ -1,9 +1,6 @@
 /**
  * Created by hujinhua on 17-7-17.
  */
-/**
- * Created by hujinhua on 2017/6/9.
- */
 const mongoose = require('mongoose');
 const db = require('../lib/Mymongoose');
 mongoose.Promise = Promise;
@@ -29,7 +26,7 @@ var auctionFlightManageSchema = new mongoose.Schema({
     date: { type:String },
     auctionType: { type:Number },
     baseprice: { type:Number },
-    auctionID: { type:Number},
+    auctionID: { type:String },
     auctionState: { type: Number}
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
@@ -39,7 +36,6 @@ var userTokenSchema = new mongoose.Schema({
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 var jwt = require('jsonwebtoken');
-var async = require('async');
 
 var router = require('express').Router();
 

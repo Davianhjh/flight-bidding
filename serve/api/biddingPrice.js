@@ -22,8 +22,7 @@ var biddingResultSchema = new mongoose.Schema({
     seat: { type:String },
     biddingPrice: { type:Number },
     biddingTime: { type:Number },
-    paymentState: { type:Boolean },
-    paymentPrice: { type:Number }
+    paymentState: { type:Boolean }
 },{collection:"biddingResult"});
 var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
 
@@ -43,7 +42,8 @@ var auctionParamSchema = new mongoose.Schema({
     auctionType: { type:Number },
     seatnum: { type:Number },
     timelap: { type:Number },
-    startTime: { type:Number }
+    startTime: { type:Number },
+    baseprice: { type:Number }
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
@@ -81,7 +81,8 @@ router.get('/', function (req, res, next) {
         price: -1
     };
 
-    if(typeof(price) === "undefined"){
+    if(typeof(price) === "undefined" || price <= 0){
+        console.log("Error: price params error");
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.write(JSON.stringify(resdata));
         res.end();
@@ -140,8 +141,7 @@ router.get('/', function (req, res, next) {
                                         seat: docs[0].seat,
                                         biddingPrice: price,
                                         biddingTime: Date.parse(new Date()),
-                                        paymentState: false,
-                                        paymentPrice: 0
+                                        paymentState: false
                                     });
                                     auctionParamModel.find({auctionID: auctionid}, function (err, docs) {
                                         if (err) {
@@ -166,6 +166,7 @@ router.get('/', function (req, res, next) {
                                             }
                                             else {
                                                 var seatnum = docs[0].seatnum;
+                                                var baseprice = docs[0].baseprice;
                                                 var timeLap = docs[0].timelap;
                                                 var startTime = docs[0].startTime;
                                                 if (docs[0].auctionType === 1 || docs[0].auctionType === 2 || docs[0].auctionType === 4) {
@@ -270,7 +271,7 @@ router.get('/', function (req, res, next) {
                                                                                             console.log(err);
                                                                                             console.log(500 + ": Server error");
                                                                                         }
-                                                                                        else {
+                                                                                        else if(price >= baseprice){
                                                                                             for (var i = 0, result = 0; i < docs.length; i++) {
                                                                                                 if (docs[i].id === passengerID) {
                                                                                                     result = i + 1;
@@ -280,7 +281,7 @@ router.get('/', function (req, res, next) {
                                                                                                 prob1 = (100 - 10 * (result - 1) / seatnum) * RANK_WEIGHT / 100;
                                                                                             }
                                                                                             else {
-                                                                                                var tmp = (90 - 5 * Math.pow((result - seatnum), 2));
+                                                                                                var tmp = (50 - 5 * Math.pow((result - seatnum), 2));
                                                                                                 if (tmp < 10) {
                                                                                                     prob1 = (Math.random() * 10) * RANK_WEIGHT / 100;
                                                                                                 }
@@ -299,7 +300,7 @@ router.get('/', function (req, res, next) {
                                                                                                         prob2 = (90 + 10 * (price - base) / base) * PRICE_WEIGHT / 100;
                                                                                                     }
                                                                                                     else {
-                                                                                                        var tmp = 90 * (price / base) * PRICE_WEIGHT / 100;
+                                                                                                        var tmp = 40 * (price / base) * PRICE_WEIGHT / 100;
                                                                                                         if (tmp <= 10) {
                                                                                                             prob2 = (Math.random() * 10) * PRICE_WEIGHT / 100;
                                                                                                         }
@@ -327,6 +328,9 @@ router.get('/', function (req, res, next) {
                                                                                                     else {
                                                                                                         heat = Math.floor(now_heat);
                                                                                                     }
+                                                                                                    console.log(prob1);
+                                                                                                    console.log(prob2);
+                                                                                                    console.log(prob3);
                                                                                                     console.log("HEAT: " + heat);
                                                                                                     var heatData = new heatBiddingModel({
                                                                                                         auctionID: auctionid,
@@ -375,6 +379,56 @@ router.get('/', function (req, res, next) {
                                                                                                             }
                                                                                                         }
                                                                                                     });
+                                                                                                }
+                                                                                            });
+                                                                                        }
+                                                                                        else {
+                                                                                            heat = Math.floor(Math.random()*15 + 5);
+                                                                                            var heatData = new heatBiddingModel({
+                                                                                                auctionID: auctionid,
+                                                                                                flight: flight,
+                                                                                                id: passengerID,
+                                                                                                biddingPrice: price,
+                                                                                                heatState: 0,
+                                                                                                heat: heat
+                                                                                            });
+                                                                                            heatBiddingModel.find({
+                                                                                                auctionID: auctionid,
+                                                                                                id: passengerID
+                                                                                            }, function (err, docs) {
+                                                                                                if (err) {
+                                                                                                    console.log(err);
+                                                                                                    console.log(500 + ": Server error");
+                                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                    res.write(JSON.stringify(resdata));
+                                                                                                    res.end();
+                                                                                                }
+                                                                                                else {
+                                                                                                    if (docs.length === 0) {
+                                                                                                        heatData.save(function (err) {
+                                                                                                            if (err) {
+                                                                                                                console.log(err);
+                                                                                                                console.log(500 + ": Server error");
+                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                res.end();
+                                                                                                            }
+                                                                                                            else {
+                                                                                                                console.log("bidding success");
+                                                                                                                resdata.bid = 1;
+                                                                                                                resdata.price = price;
+                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                                res.write(JSON.stringify(resdata));
+                                                                                                                res.end();
+                                                                                                            }
+                                                                                                        })
+                                                                                                    }
+                                                                                                    else {
+                                                                                                        console.log('repeating bidding in heatBidding');
+                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                                                        res.write(JSON.stringify(resdata));
+                                                                                                        res.end();
+                                                                                                    }
                                                                                                 }
                                                                                             });
                                                                                         }

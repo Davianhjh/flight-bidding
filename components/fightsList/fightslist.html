@@ -12,14 +12,14 @@
             <br />
             <div class="ibox-title">
                 <div class="row">
-                 <div class="col-sm-8"> 
-                <h3>请选择您要设置的航班：</h3>
-                 </div> 
+                <div class="col-sm-8"> 
+                    <h3>请选择您要设置的航班：</h3>
+                </div> 
                  <div class="col-sm-4"> 
                     <div class="input-group">
-                        <input type="text" placeholder="Search" class="input-sm form-control"> 
+                        <input v-model="searchValue" type="text" placeholder="请输入查找内容" class="input-sm form-control"> 
                             <span class="input-group-btn">
-                                <button type="button" class="btn btn-sm btn-primary"> Go!</button> 
+                                <button type="button" class="btn btn-sm btn-primary" @click="search()"> 开始</button> 
                             </span>
                     </div>
                  </div> 
@@ -34,33 +34,55 @@
                         <!-- <br /> -->
 
                         <template>
-                            <el-table :data="tableData" style="min-width: 100%">
-                            <el-table-column prop="date" label="日期" style="min-width: auto">
+                            <el-table :data="tableData" style="min-width: 100%" :default-sort="{prop: 'date', order: 'descending'}">
+                            <el-table-column prop="date" label="日期" sortable style="min-width: auto">
                             </el-table-column>
-                            <el-table-column prop="flight" label="航班号" style="min-width: auto">
+                            <el-table-column prop="flight" label="航班号" sortable style="min-width: auto">
                             </el-table-column>
-                            <el-table-column prop="origin" label="出发" style="min-width: auto">
+                            <el-table-column prop="departure" label="起飞时间" sortable style="min-width: auto">
                             </el-table-column>
-                                <el-table-column prop="destination" label="到达" style="min-width: auto">
-                                </el-table-column>
-                                <el-table-column prop="departure" label="起飞时间" style="min-width: auto">
-                                </el-table-column>
-                                <el-table-column prop="landing" label="降落时间" style="min-width: auto">
-                                </el-table-column>
-                                <el-table-column prop="operate" label="操作">
-                                    <template scope="scope">
-                                        <el-button
-                                            size="small"
-                                            @click="clickCheck(scope.$index, scope.row)">查看</el-button>
-                                        <el-button
-                                            size="small"
-                                            @click="clickEdit(scope.$index, scope.row)">编辑</el-button>
-                                    </template>
-                                </el-table-column>
+                            <el-table-column prop="landing" label="降落时间" sortable style="min-width: auto">
+                            </el-table-column>
+                            <el-table-column prop="origin" label="出发" width="100">
+                            </el-table-column>
+                            <el-table-column prop="destination" label="到达" width="100">
+                            </el-table-column>
+                            <!-- <el-table-column prop="jptype" label="策略" style="min-width: auto" :filters="[{text:'未设置', value:'-1'}, {text:'第一价', value:'第一价'}, {text:'第二价', value:'第二价'}, {text:'热度竞拍', value:'热度竞拍'}, {text:'超售竞拍', value:'超售竞拍'}, {text:'提前竞拍', value:'提前竞拍'}, {text:'幸运竞拍', value:'幸运竞拍'}]" :filter-method="filterTag" filter-placement="bottom-end"> -->
+                            <el-table-column prop="jptype" label="策略" style="min-width: auto">
+                            </el-table-column>
+                            <!-- <el-table-column prop="jpauctionState" label="状态" style="min-width: auto" :filters="[{text:'未设置', value:'未设置'}, {text:'进行中', value:'进行中'}, {text:'已结束', value:'已结束'}]" :filter-method="filterTag" filter-placement="bottom-end"> -->
+                            <el-table-column prop="jpauctionState" label="状态" style="min-width: auto">
+                            </el-table-column>
+                            <el-table-column prop="operate" label="操作" width="140">
+                                <template scope="scope">
+                                    <el-button
+                                        size="small"
+                                        @click="clickCheck(scope.$index, scope.row)">查看</el-button>
+                                    <el-button
+                                        size="small"
+                                        @click="clickEdit(scope.$index, scope.row)">编辑</el-button>
+                                </template>
+                            </el-table-column>
 
                             </el-table>
                         </template>
-                    </table><div class="dataTables_paginate paging_simple_numbers" id="DataTables_Table_0_paginate"><ul class="pagination"><li class="paginate_button previous disabled" id="DataTables_Table_0_previous"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="0" tabindex="0">Previous</a></li><li class="paginate_button active"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="1" tabindex="0">1</a></li><li class="paginate_button next disabled" id="DataTables_Table_0_next"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="2" tabindex="0">Next</a></li></ul></div></div>
+                    </table>
+                    <br />
+
+                    <div class="col-sm-9 m-b-xs">
+                        <template> 
+                        <div class="block"> 
+                            <el-pagination :page-size="10" layout="total, prev, pager, next" :total="totalValue">
+                            </el-pagination>
+                        <!-- <div class="dataTables_paginate paging_simple_numbers" id="DataTables_Table_0_paginate"><ul class="pagination"><li class="paginate_button previous disabled" id="DataTables_Table_0_previous"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="0" tabindex="0">Previous</a></li><li class="paginate_button active"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="1" tabindex="0">1</a></li><li class="paginate_button next disabled" id="DataTables_Table_0_next"><a href="#" aria-controls="DataTables_Table_0" data-dt-idx="2" tabindex="0">Next</a></li></ul></div></div> -->
+                        </div> 
+                        </template> 
+                    </div>
+                    <p class="pull-right"> 
+                       <button type="button" class="btn btn-primary btn-sm" onclick="history.go(0)">刷新</button>
+                       <button type="button" class="btn btn-primary btn-sm" onclick="history.go(-1)">返回</button>
+                    </p> 
+
                 </div>
             </div>
         </div>
@@ -70,19 +92,20 @@
     <el-form :model="form">
 
         <el-form-item label="竞拍类型" :label-width="formLabelWidth">
-            <el-select v-model="form.region" placeholder="请选择竞拍类型">
+            <el-select v-model="form.region" placeholder="请选择竞拍类型" v-on:change="formchange()">
                 <el-option label="第一价竞拍" value="1"></el-option>
                 <el-option label="第二价竞拍" value="2"></el-option>
-                <el-option label="热力竞拍" value="3"></el-option>
+                <el-option label="热度竞拍" value="3"></el-option>
                 <el-option label="超售竞拍" value="4"></el-option>
                 <el-option label="提前竞拍" value="5"></el-option>
+                <el-option label="幸运竞拍" value="6"></el-option>
             </el-select>
         </el-form-item>
-        <el-form-item label="竞拍低价" :label-width="formLabelWidth">
-            <el-input v-model="form.price" auto-complete="off" placeholder="请输入竞拍低价"></el-input>
+        <el-form-item label="竞拍底价" :label-width="formLabelWidth">
+            <el-input type="number" v-model="form.price" auto-complete="off" :placeholder="priceplaceholder"></el-input>
         </el-form-item>
         <el-form-item label="竞拍座位" :label-width="formLabelWidth">
-            <el-input v-model="form.seat" auto-complete="off" placeholder="请输入竞拍的座位数（可选）"></el-input>
+            <el-input type="number" v-model="form.seat" auto-complete="off" :placeholder="seatplaceholder" :disabled="isedit"></el-input>
         </el-form-item>
     </el-form>
     <div slot="footer" class="dialog-footer">

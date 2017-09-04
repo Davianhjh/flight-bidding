@@ -20,7 +20,12 @@ var apis = {
     loginAdmin: require('./loginAdmin'),
     adminInfo: require('./adminInfo'),
     setAuctionFlights: require('./setAuctionFlights'),
-    consoleResult: require('./consoleResult')
+    consoleResult: require('./consoleResult'),
+    startLottery: require('../LotteryAPI/startLottery'),
+    lotteryInfo: require('../LotteryAPI/lotteryInfo'),
+    lotteryPrice: require('../LotteryAPI/lotteryPrice'),
+    lotteryTransaction: require('../LotteryAPI/lotteryTransaction'),
+    jackpot: require('../LotteryAPI/jackpot')
 };
 // Rest API's registered Above.
 

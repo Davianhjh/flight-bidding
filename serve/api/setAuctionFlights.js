@@ -32,7 +32,8 @@ var auctionFlightManageSchema = new mongoose.Schema({
     auctionType: { type:Number },
     baseprice: { type:Number },
     auctionState: { type:Number },
-    seatnum: { type:Number }
+    seatnum: { type:Number },
+    timeLap: { type: Number }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
@@ -48,39 +49,47 @@ var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
+var TIMELAP = 60*2;
+
 function getAuctionID(params, type) {
     var flight = params.flight;
     var date = params.date;
-    var auctionID = date + flight + "TYPE" + type.toString();
-    return auctionID;
+    var auctionID = "";
+    if(type !== 6) {
+        auctionID = date + flight + "TYPE" + type.toString();
+        return auctionID;
+    }
+    else if(type === 6) {
+        auctionID = date + flight + "LOT" + type.toString();
+        return auctionID;
+    }
 }
 
 function dateFormat(dateStr, timeStr) {
     var date = dateStr.slice(0,4) + '-' + dateStr.slice(4,6) + '-' + dateStr.slice(6) + ' ' + timeStr;
     return date;
 }
-var TIMELAP = 120;
 
 router.post('/', function (req, res, next) {
     var adminID = "";
     var token = req.headers['agi-token'];
+    var flights = req.body.flights;
     var type = parseInt(req.body.type);
     var basePrice = req.body.price;
-    var flights = req.body.flights;
     var seat = -1;
     var resdata = {
         result: 1,
         status: -1,
         repeat: 0
     };
-    if(type!==1 && type!==2 && type!==3 && type!==4 && type!==5){
+    if(type!==1 && type!==2 && type!==3 && type!==4 && type!==5 && type!==6){
         console.log("Error: auctionType param error");
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.write(JSON.stringify(resdata));
         res.end();
         return;
     }
-    if(basePrice <= 0){
+    if((typeof(basePrice) === "undefined" && type!==6) || (typeof(basePrice) !== "undefined" && basePrice < 0)){
         console.log("Error: auction's base price param error");
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.write(JSON.stringify(resdata));
@@ -88,7 +97,7 @@ router.post('/', function (req, res, next) {
         return;
     }
     if(typeof(req.body.seat) !== 'undefined'){
-        seat = req.body.seat;
+        seat = parseInt(req.body.seat);
     }
 
     adminTokenModel.find({Token: token}, function (err, docs) {
@@ -166,7 +175,8 @@ router.post('/', function (req, res, next) {
                                                             auctionType: type,
                                                             baseprice: basePrice,
                                                             auctionState: 0,
-                                                            seatnum: seat
+                                                            seatnum: seat,
+                                                            timeLap: TIMELAP
                                                         });
                                                         auctionflight.save(function (err) {
                                                             if (err) {
@@ -191,12 +201,12 @@ router.post('/', function (req, res, next) {
                                                         });
                                                     }
                                                     else {
-                                                        auctionFlightManageModel.update({auctionID: auctionid}, {
+                                                        auctionFlightManageModel.findOneAndUpdate({auctionID: auctionid, auctionState: 0}, {
                                                             $set: {
                                                                 auctionType: type,
                                                                 baseprice: basePrice
                                                             }
-                                                        }, function (err) {
+                                                        }, {new: false}, function (err) {
                                                             if (err) {
                                                                 console.log(err);
                                                                 console.log(500 + ": Server error");
@@ -275,7 +285,8 @@ router.post('/', function (req, res, next) {
                                                            auctionType: type,
                                                            baseprice: basePrice,
                                                            auctionState: 0,
-                                                           seatnum: seat
+                                                           seatnum: seat,
+                                                           timeLap: TIMELAP
                                                        });
                                                        auctionflight.save(function (err) {
                                                            if(err){
@@ -339,6 +350,103 @@ router.post('/', function (req, res, next) {
                                            }
                                        }
                                    }
+                                });
+                            }
+                        }
+                        else if(type === 6){
+                            if(flights.length !== 1){
+                                console.log("Error: lottery auction configure params error");
+                            }
+                            else {
+                                flightManageModel.find({
+                                    flight: flights[0].flight,
+                                    date: flights[0].date
+                                }, function (err, docs) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log(500 + ": Server error");
+                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                        res.write(JSON.stringify(resdata));
+                                        res.end();
+                                    }
+                                    else {
+                                        if (docs.length === 0) {
+                                            console.log("404: " + "flight " + flights[0].flight + " not found on " + flights[0].date);
+                                            res.writeHead(200, {'Content-Type': 'application/json'});
+                                            res.write(JSON.stringify(resdata));
+                                            res.end();
+                                        }
+                                        else {
+                                            if (docs[0].state === 1) {
+                                                console.log("Error: this lottery auction have been set");
+                                                resdata.repeat = 1;
+                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                res.write(JSON.stringify(resdata));
+                                                res.end();
+                                            }
+                                            else {
+                                                flightManageModel.update({
+                                                    flight: flights[0].flight,
+                                                    date: flights[0].date
+                                                }, {$set: {state: 1}}, function (err) {
+                                                    if (err) {
+                                                        console.log(err);
+                                                        console.log(500 + ": Server error");
+                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                        res.write(JSON.stringify(resdata));
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        var auctionid = getAuctionID(flights[0], type);
+                                                        if(typeof(basePrice) === "undefined"){
+                                                            basePrice = 0;
+                                                        }
+                                                        var auctionflight = new auctionFlightManageModel({
+                                                            flight: flights[0].flight,
+                                                            date: flights[0].date,
+                                                            auctionID: auctionid,
+                                                            auctionType: type,
+                                                            baseprice: basePrice,
+                                                            auctionState: 0,
+                                                            seatnum: seat,
+                                                            timeLap: TIMELAP
+                                                        });
+                                                        auctionflight.save(function (err) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                res.write(JSON.stringify(resdata));
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log("flight " + flights[0].flight + "'s lottery setting saved");
+                                                                flightManageModel.update({
+                                                                    flight: flights[0].flight,
+                                                                    date: flights[0].date
+                                                                }, {$set: {state: 1}}, function (err) {
+                                                                    if (err) {
+                                                                        console.log(err);
+                                                                        console.log(500 + ": Server error");
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                    else {
+                                                                        console.log("update " + flights[0].flight + "'s flightManage state to 1");
+                                                                        resdata.status = 1;
+                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
+                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.end();
+                                                                    }
+                                                                })
+                                                            }
+                                                        })
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
                                 });
                             }
                         }

@@ -1,9 +1,12 @@
+
+
 $(function () {
     // console.log(location.hash.substr(1));
     var dataStr = location.hash.substr(1);
     var paramData = dataStr.split("$");
     console.log(paramData[0],paramData[1]);
     var formdata = {};
+
     $.ajax({
         url: '/consoleResult',
         type: 'POST',
@@ -20,7 +23,13 @@ $(function () {
             console.log(data);
             if (data.result == 1) {
                 formdata = data;
-                console.log(data.auctionState);
+                
+                if (data.seat < 0) {
+                    formdata.seat = 0;
+                }
+                if (data.basePrice < 0) {
+                    formdata.basePrice = 0;
+                }
                 switch (data.auctionState) { // 获取状态信息
                     case 0 :{
                         formdata.status = "未开始";
@@ -60,6 +69,11 @@ $(function () {
                         formdata.type = "提前竞拍";
                         break;
                     }
+                    case 6 :{
+                        formdata.type = "幸运竞拍";
+                        formdata.isshow = true;
+                        break;
+                    }                    
                     default:{
                         formdata.type = "未设置";
                         break;
@@ -82,6 +96,10 @@ $(function () {
     var Main = {
       data() {
         return {
+            lucynumber: formdata.lucky,
+            lucynumberisshow: formdata.isshow,
+            totalValue: formdata.person.length,
+            currentPage: 1,
             result: 1,
             flight: formdata.flight,
             date: formdata.date,
@@ -99,7 +117,12 @@ $(function () {
         }
       },
       mothods: {
-
+            // handleSizeChange(val) {
+            //     console.log(`每页 ${val} 条`);
+            // },
+            // handleCurrentChange(val) {
+            //     console.log(`当前页: ${val}`);
+            // },
       }
     }
     var Ctor = Vue.extend(Main)

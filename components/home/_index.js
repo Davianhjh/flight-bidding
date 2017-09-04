@@ -7,10 +7,12 @@ router.get("/", function(req, res, next){
     var head = parts.render('head', {
         title: "AGiView Home",
         mobile: false,
-        additionalStylesheet:["/static/style/bootstrap.min.css",
-                                "/static/style/font-awesome.css",
-                                "/static/style/animate.css",
-                                "/static/style/style.css"],
+        additionalStylesheet:[
+                                "/static/style/bootstrap.min.css",
+                                // "/static/style/font-awesome.css",
+                                // "/static/style/animate.css"
+                                "/static/style/style.css"
+                            ],
         additionalScriptsSrc : ["/static/script/index.js"]
     });
     console.log("debug here!!!:" + req);

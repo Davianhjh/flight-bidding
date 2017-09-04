@@ -26,7 +26,8 @@ var auctionFlightManageSchema = new mongoose.Schema({
     baseprice: { type:Number },
     auctionID: { type:String },
     auctionState: { type:Number },
-    seatnum: { type:Number }
+    seatnum: { type:Number },
+    timeLap: { type:Number }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
@@ -43,8 +44,6 @@ var bodyParser = require('body-parser');
 var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
-
-var timelap = 180;
 
 function zeroFill (i) {
     return (i < 10 ? '0' : '') + i
@@ -104,6 +103,9 @@ router.post('/', function (req, res, next) {
                             TypeArray.push(1);
                             TypeArray.push(2);
                             TypeArray.push(3);
+                        }
+                        else if(type === "3"){
+                            TypeArray.push(6);
                         }
                         else {
                             console.log(403 + ": type param error ");
@@ -184,7 +186,7 @@ router.post('/', function (req, res, next) {
                                                                     auctionState: auctionState.toString(),
                                                                     auctionType: lists[i].auctionType.toString(),
                                                                     seatnum: lists[i].seatnum.toString(),
-                                                                    time: timelap
+                                                                    time: lists[i].timeLap.toString()
                                                                 };
                                                                 break;
                                                             }
@@ -327,7 +329,7 @@ router.get('/', function (req, res, next) {
                                                         auctionState: auctionState.toString(),
                                                         auctionType: lists[0].auctionType.toString(),
                                                         seatnum: lists[0].seatnum.toString(),
-                                                        time: timelap
+                                                        time: lists[0].timeLap.toString()
                                                     };
                                                     flights.push(flightData);
                                                     resdata.person = {

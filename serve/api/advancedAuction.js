@@ -261,24 +261,19 @@ router.post('/', function (req, res, next) {
                                                         // TO be added
                                                     };
 
-                                                    flightInfoModel.update({flight:flight, date:date}, {userstates:-1}, function (err) {
+                                                    flightInfoModel.update({flight:flight, date:date}, {userstatus:-1},{multi:true}, function (err) {
                                                         if (err) {
                                                             console.log(err);
                                                             console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
                                                         }
                                                         else {
                                                             var day_count = 0;
+                                                            console.log("userstatus updated");
                                                             var updateState = function () {
                                                                 auctionParamModel.find({auctionID: auctionid,flight: flight}, function (err, doc) {
                                                                     if(err){
                                                                         console.log(err);
                                                                         console.log(500 + ": Server error");
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
                                                                         clearInterval(IntervalID);
                                                                     }
                                                                     else {
@@ -293,9 +288,6 @@ router.post('/', function (req, res, next) {
                                                                                 if (err) {
                                                                                     console.log(err);
                                                                                     console.log(500 + ": Server error");
-                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                    res.write(JSON.stringify(resdata));
-                                                                                    res.end();
                                                                                     clearInterval(IntervalID);
                                                                                 }
                                                                                 else {
@@ -314,9 +306,6 @@ router.post('/', function (req, res, next) {
                                                                                             if (err) {
                                                                                                 console.log(err);
                                                                                                 console.log(500 + ": Server error");
-                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                res.write(JSON.stringify(resdata));
-                                                                                                res.end();
                                                                                                 clearInterval(IntervalID);
                                                                                             }
                                                                                             else if (docs.length !==0 ) {
@@ -334,9 +323,6 @@ router.post('/', function (req, res, next) {
                                                                                                         if (err) {
                                                                                                             console.log(err);
                                                                                                             console.log(500 + ": Server error");
-                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                            res.write(JSON.stringify(resdata));
-                                                                                                            res.end();
                                                                                                         }
                                                                                                         else {
                                                                                                             for (var i = 0; i < seat; i++) {
@@ -385,7 +371,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                 console.log('ERROR: '+err);
                                                                                                                             }
                                                                                                                             console.log(result);
-                                                                                                                            res.end();
                                                                                                                         });
                                                                                                                     }
                                                                                                                 });
@@ -406,7 +391,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                 console.log('ERROR: '+err);
                                                                                                                             }
                                                                                                                             console.log(result);
-                                                                                                                            res.end();
                                                                                                                         });
                                                                                                                     }
                                                                                                                 });
@@ -418,9 +402,6 @@ router.post('/', function (req, res, next) {
                                                                                                                 if(err){
                                                                                                                     console.log(err);
                                                                                                                     console.log(500 + ": Server error");
-                                                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                    res.write(JSON.stringify(resdata));
-                                                                                                                    res.end();
                                                                                                                 }
                                                                                                                 else {
                                                                                                                     console.log("advanced auction bidding result saved");
@@ -440,28 +421,18 @@ router.post('/', function (req, res, next) {
                                                                                                                                         else {
                                                                                                                                             console.log("update flight " + flight + "'s state to 2");
                                                                                                                                             var winner = candidateID.slice(0,seat);
-                                                                                                                                            flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
+                                                                                                                                            flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
                                                                                                                                                 if (err) {
                                                                                                                                                     console.log(err);
                                                                                                                                                     console.log(500 + ": Server error");
-                                                                                                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                                                    res.write(JSON.stringify(resdata));
-                                                                                                                                                    res.end();
                                                                                                                                                 }
                                                                                                                                                 else {
-                                                                                                                                                    flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err, docs) {
+                                                                                                                                                    flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:1}, {multi:true}, function (err, docs) {
                                                                                                                                                         if (err) {
                                                                                                                                                             console.log(err);
                                                                                                                                                             console.log(500 + ": Server error");
-                                                                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                                                            res.write(JSON.stringify(resdata));
-                                                                                                                                                            res.end();
                                                                                                                                                         }
                                                                                                                                                         else {
-                                                                                                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                                                            res.write(JSON.stringify(resdata));
-                                                                                                                                                            res.end();
-
                                                                                                                                                             clearInterval(IntervalID);
                                                                                                                                                         }
                                                                                                                                                     });
@@ -490,9 +461,6 @@ router.post('/', function (req, res, next) {
                                                                                                             if (err) {
                                                                                                                 console.log(err);
                                                                                                                 console.log(500 + ": Server error");
-                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                res.write(JSON.stringify(resdata));
-                                                                                                                res.end();
                                                                                                             }
                                                                                                             else {
                                                                                                                 for (var i = 0; i < docs.length; i++) {
@@ -542,7 +510,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                     console.log('ERROR: '+err);
                                                                                                                                 }
                                                                                                                                 console.log(result);
-                                                                                                                                res.end();
                                                                                                                             });
                                                                                                                         }
                                                                                                                     });
@@ -563,7 +530,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                     console.log('ERROR: '+err);
                                                                                                                                 }
                                                                                                                                 console.log(result);
-                                                                                                                                res.end();
                                                                                                                             });
                                                                                                                         }
                                                                                                                     });
@@ -575,9 +541,6 @@ router.post('/', function (req, res, next) {
                                                                                                                     if (err) {
                                                                                                                         console.log(err);
                                                                                                                         console.log(500 + ": Server error");
-                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                        res.write(JSON.stringify(resdata));
-                                                                                                                        res.end();
                                                                                                                     }
                                                                                                                     else {
                                                                                                                         console.log("advanced auction bidding result saved");
@@ -597,25 +560,18 @@ router.post('/', function (req, res, next) {
                                                                                                                                             else {
                                                                                                                                                 console.log("update flight " + flight + "'s state to 2");
                                                                                                                                                 var winner = candidateID.slice(0,docs.length);
-                                                                                                                                                flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
+                                                                                                                                                flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
                                                                                                                                                     if (err) {
                                                                                                                                                         console.log(err);
                                                                                                                                                         console.log(500 + ": Server error");
-                                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                                                        res.write(JSON.stringify(resdata));
-                                                                                                                                                        res.end();
                                                                                                                                                     }
                                                                                                                                                     else {
-                                                                                                                                                        flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err, docs) {
+                                                                                                                                                        flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:1}, {multi:true}, function (err, docs) {
                                                                                                                                                             if (err) {
                                                                                                                                                                 console.log(err);
                                                                                                                                                                 console.log(500 + ": Server error");
-                                                                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                                                                                                res.write(JSON.stringify(resdata));
-                                                                                                                                                                res.end();
                                                                                                                                                             }
                                                                                                                                                             else {
-                                                                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                                                                                                 res.write(JSON.stringify(resdata));
                                                                                                                                                                 res.end();
 
@@ -641,7 +597,6 @@ router.post('/', function (req, res, next) {
                                                                                                             if (err) {
                                                                                                                 console.log(err);
                                                                                                                 console.log(500 + ": Server error");
-                                                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                                                 res.write(JSON.stringify(resdata));
                                                                                                                 res.end();
                                                                                                             }
@@ -693,7 +648,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                     console.log('ERROR: '+err);
                                                                                                                                 }
                                                                                                                                 console.log(result);
-                                                                                                                                res.end();
                                                                                                                             });
                                                                                                                         }
                                                                                                                     });
@@ -714,7 +668,6 @@ router.post('/', function (req, res, next) {
                                                                                                                                     console.log('ERROR: '+err);
                                                                                                                                 }
                                                                                                                                 console.log(result);
-                                                                                                                                res.end();
                                                                                                                             });
                                                                                                                         }
                                                                                                                     });
@@ -726,7 +679,6 @@ router.post('/', function (req, res, next) {
                                                                                                                     if (err) {
                                                                                                                         console.log(err);
                                                                                                                         console.log(500 + ": Server error");
-                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                                                         res.write(JSON.stringify(resdata));
                                                                                                                         res.end();
                                                                                                                     }
@@ -740,13 +692,13 @@ router.post('/', function (req, res, next) {
                                                                                                                                 console.log(err);
                                                                                                                             else {
                                                                                                                                 console.log("update seatnum to " + now_seat + " on Day " + day_count);
-                                                                                                                                flightInfoModel.update({id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err) {
+                                                                                                                                flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err) {
                                                                                                                                     if (err) {
                                                                                                                                         console.log(err);
                                                                                                                                         console.log(500 + ": Server error");
                                                                                                                                     }
                                                                                                                                     else {
-                                                                                                                                        flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
+                                                                                                                                        flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
                                                                                                                                             if (err) {
                                                                                                                                                 console.log(err);
                                                                                                                                                 console.log(500 + ": Server error");
@@ -790,7 +742,6 @@ router.post('/', function (req, res, next) {
                                                                                                                             console.log('ERROR: ' + err);
                                                                                                                         }
                                                                                                                         console.log(result);
-                                                                                                                        res.end();
                                                                                                                     });
                                                                                                                 }
                                                                                                             });
@@ -811,16 +762,14 @@ router.post('/', function (req, res, next) {
                                                                                                                                 console.log(error);
                                                                                                                             else {
                                                                                                                                 console.log("update flight " + flight + "'s state to 2");
-                                                                                                                                flightInfoModel.update({id: {$in: failure}}, {userstatus: 0}, {multi: true}, function (err, docs) {
+                                                                                                                                flightInfoModel.update({flight:flight,date:date,id: {$in: failure}}, {userstatus: 1}, {multi: true}, function (err, docs) {
                                                                                                                                     if (err) {
                                                                                                                                         console.log(err);
                                                                                                                                         console.log(500 + ": Server error");
-                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                                                                         res.write(JSON.stringify(resdata));
                                                                                                                                         res.end();
                                                                                                                                     }
                                                                                                                                     else {
-                                                                                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
                                                                                                                                         res.write(JSON.stringify(resdata));
                                                                                                                                         res.end();
 
@@ -855,7 +804,6 @@ router.post('/', function (req, res, next) {
                                                                                                                             console.log('ERROR: '+err);
                                                                                                                         }
                                                                                                                         console.log(result);
-                                                                                                                        res.end();
                                                                                                                     });
                                                                                                                 }
                                                                                                             });
@@ -872,7 +820,7 @@ router.post('/', function (req, res, next) {
                                                                                                             console.log(err);
                                                                                                         else {
                                                                                                             console.log("update seatnum to " + seat + " on Day " + day_count);
-                                                                                                            flightInfoModel.update({id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
+                                                                                                            flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
                                                                                                                 if (err) {
                                                                                                                     console.log(err);
                                                                                                                     console.log(500 + ": Server error");
