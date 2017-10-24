@@ -46,16 +46,6 @@ var lotteryRecordSchema = new mongoose.Schema({
 }, {collection:"lotteryRecord"});
 var lotteryRecordModel = db.model("lotteryRecord", lotteryRecordSchema,"lotteryRecord");
 
-var flightInfoSchema = new mongoose.Schema({
-    id: { type:String },
-    name: { type:String },
-    tel: { type:String },
-    flight: { type:String },
-    date: { type:String },
-    userstatus: { type: Number }
-},{collection:"flightInfo"});
-var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
-
 var flightManageSchema = new mongoose.Schema({
     flight: { type:String },
     date: { type:String },
@@ -63,10 +53,20 @@ var flightManageSchema = new mongoose.Schema({
 },{collection:"flightManage"});
 var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage");
 
+var flightInfoSchema = new mongoose.Schema({
+    id: { type:String },
+    name: { type:String },
+    tel: { type:String },
+    flight: { type:String },
+    seat: { type:String },
+    date: { type:String }
+},{collection:"flightInfo"});
+var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     flight : { type:String },
-    attentantUUID: { type:String },
+    attendantUUID: { type:String },
     baseprice: { type:Number },
     timelap: { type:Number },
     seatnum: { type:Number },
@@ -97,11 +97,6 @@ var userTokenSchema = new mongoose.Schema({
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
 
-var serverTokenSchema = new mongoose.Schema({
-    Token: { type:String }
-},{collection:"serverToken"});
-var serverTokenModel = db.model("serverToken", serverTokenSchema,"serverToken");
-var jwt = require('jsonwebtoken');
 var bodyParser = require('body-parser');
 
 var router = require('express').Router();
@@ -127,12 +122,12 @@ function getLuckyPerson(region, luckynum) {
 }
 
 router.post('/', function (req, res, next) {
-    var attendantID = "";
     var token = req.headers['agi-token'];
     var flight = req.body.flight;
     var auctionid = req.body.auctionid;
     var seatnum = req.body.seatnum;
     var type = req.body.type;
+    var stage = req.body.stage;
     var dateStr = req.body.date;
 
     var resdata = {
@@ -141,18 +136,17 @@ router.post('/', function (req, res, next) {
         timelap: -1
     };
 
-    if(typeof(seatnum) === "undefined" || seatnum <= 0){
+    if(typeof(seatnum) === "undefined" || parseInt(seatnum) <= 0){
         console.log("seat number params error");
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.write(JSON.stringify(resdata));
+        res.json(resdata);
         res.end();
         return;
     }
-
     if(typeof(auctionid) === "undefined"){
-        auctionid = dateStr + flight + "LOT" + type;
-    }
+        auctionid = dateStr + flight + "LOT" + type + "S" + stage.toString();
 
+    }
+    seatnum = parseInt(seatnum);
     auctionFlightManageModel.findOneAndUpdate({auctionID: auctionid}, {
         $set: {
             seatnum: seatnum,
@@ -162,14 +156,12 @@ router.post('/', function (req, res, next) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else if (typeof(auctionid) === "undefined" || lists === null) {
             console.log(403 + ": auctionID invalid params error");
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
             return;
         }
@@ -182,7 +174,7 @@ router.post('/', function (req, res, next) {
             var auctionData = new auctionParamModel({
                 "auctionID": auctionid,
                 "flight": flight,
-                "attentantUUID": "BACKEND",
+                "attendantUUID": "BACKEND",
                 "baseprice": baseprice,
                 "timelap": timelap,
                 "seatnum": seatnum,
@@ -191,23 +183,20 @@ router.post('/', function (req, res, next) {
                 "auctionState": 1,
                 "count": 0
             });
-
-            auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
+            auctionParamModel.findOne({auctionID: auctionid}, function (error, docs) {
                 if (error) {
                     console.log(error);
                     console.log(500 + ": Server error");
-                    res.writeHead(200, {'Content-Type': 'application/json'});
-                    res.write(JSON.stringify(resdata));
+                    res.json(resdata);
                     res.end();
                 }
                 else {
-                    if (docs.length === 0) {
+                    if (docs === null) {
                         auctionData.save(function (err) {
                             if (err) {
                                 console.log(err);
                                 console.log(500 + ": Server error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+                                res.json(resdata);
                                 res.end();
                             }
                             else {
@@ -215,279 +204,219 @@ router.post('/', function (req, res, next) {
                                 resdata.auction = 1;
                                 resdata.timelap = timelap;
                                 LOTTERY_POOL[auctionid] = 0;
+                                res.json(resdata);
 
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
-
-                                flightInfoModel.update({
-                                    flight: flight,
-                                    date: date
-                                }, {userstatus: -1}, {multi: true}, function (err) {
-                                    if (err) {
-                                        console.log(err);
-                                        console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
-                                    }
-                                    else {
-                                        var updateState = function () {
-                                            return auctionParamModel.findOneAndUpdate({auctionID: auctionid}, {auctionState: 2, count:LOTTERY_POOL[auctionid]}, {new: false}, function (err, list) {
-                                                if (err)
-                                                    console.log(err);
+                                var updateState = function () {
+                                    return auctionParamModel.findOneAndUpdate({auctionID: auctionid}, {auctionState: 2, count:LOTTERY_POOL[auctionid]}, {new: false}, function (err, list) {
+                                        if (err)
+                                            console.log(err);
+                                        else {
+                                            var flight = list.flight;
+                                            var basePrice = lists.baseprice;
+                                            auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                if (error)
+                                                    console.log(error);
                                                 else {
-                                                    var flight = list.flight;
-                                                    var basePrice = lists.baseprice;
-                                                    auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                    console.log('update auctionState to 2');
+                                                    flightManageModel.update({flight: flight, date:dateStr},{state: 0}, function (error) {
                                                         if (error)
                                                             console.log(error);
                                                         else {
-                                                            console.log('update auctionState to 2');
-                                                            flightManageModel.update({state: 0}, function (error) {
-                                                                if (error)
-                                                                    console.log(error);
-                                                                else {
-                                                                    console.log("update flight " + flight + "'s state to 2");
-                                                                    var Xinge_Option = {
-                                                                        device_token: "",
-                                                                        message_type: 1,
-                                                                        message: {
-                                                                            content: '',
-                                                                            title: ''
-                                                                        },
-                                                                        action: {
-                                                                            action_type: 1,
-                                                                            activity: "com.agiview.flightupdating.client.ResultActivity"
-                                                                        },
-                                                                        path: "/v2/push/single_device"
-                                                                        // TO be added
-                                                                    };
-                                                                    var LUCKYNUM = 0;
-                                                                    var total = LOTTERY_POOL[auctionid];
-                                                                    var MAX = Math.pow(2,31);
-                                                                    var MIN = Math.pow(2,30);
-                                                                    var candidateID = [];
-                                                                    var LUCKYID = "";
-                                                                    if(total === 1){
-                                                                        LUCKYNUM = 1;
-                                                                        console.log("Only one ticket");
-                                                                    }
-                                                                    else if(total === 0){
-                                                                        LUCKYNUM = 0;
-                                                                        console.log("no one in");
-                                                                    }
-                                                                    else if(total < basePrice && BASEPRICE_SWITCH){
-                                                                        LUCKYNUM = Math.floor((Math.random()*(MAX-MIN)+MIN) % basePrice);
-                                                                        if(LUCKYNUM === 0)
-                                                                            LUCKYNUM = basePrice;
-                                                                    }
-                                                                    else {
-                                                                        LUCKYNUM = Math.floor((Math.random()*(MAX-MIN)+MIN) % total);
-                                                                        if(LUCKYNUM === 0)
-                                                                            LUCKYNUM = total;
-                                                                    }
-                                                                    console.log("LUCKYNUM: " + LUCKYNUM);
-                                                                    LOTTERY_POOL[auctionid] = 0;
-                                                                    if(LUCKYNUM <= total) {
-                                                                        // TODO someone got hit
-                                                                        lotteryResultModel.find({auctionID: auctionid}, function (err, docs) {
-                                                                            if (err) {
-                                                                                console.log(err);
-                                                                            }
-                                                                            else {
-                                                                                for (var i = 0; i < docs.length; i++) {
-                                                                                    var region = getParticipateRegion(docs[i].luckyRegion);
-                                                                                    var passengerID = docs[i].id;
-                                                                                    console.log(passengerID + ": " + region);
-                                                                                    candidateID.push(passengerID);
-                                                                                    if (getLuckyPerson(region, LUCKYNUM)) {
+                                                            console.log("update flight " + flight + "'s state to 0");
+                                                            var Xinge_Option = {
+                                                                device_token: "",
+                                                                message_type: 1,
+                                                                message: {
+                                                                    content: '',
+                                                                    title: ''
+                                                                },
+                                                                action: {
+                                                                    action_type: 1,
+                                                                    activity: "com.agiview.flightupdating.client.ResultActivity"
+                                                                },
+                                                                path: "/v2/push/single_device"
+                                                                // TO be added
+                                                            };
+                                                            var LUCKYNUM = 0;
+                                                            var candidateID = [];
+                                                            var total = LOTTERY_POOL[auctionid];
+                                                            var MAX = Math.pow(2,31);
+                                                            var MIN = Math.pow(2,30);
+                                                            var LUCKYID = "";
+                                                            if(total === 1){
+                                                                LUCKYNUM = 1;
+                                                                console.log("Only one ticket");
+                                                            }
+                                                            else if(total === 0){
+                                                                LUCKYNUM = 0;
+                                                                console.log("no one in");
+                                                            }
+                                                            else if(total < basePrice && BASEPRICE_SWITCH){
+                                                                LUCKYNUM = Math.floor((Math.random()*(MAX-MIN)+MIN) % basePrice);
+                                                                if(LUCKYNUM === 0)
+                                                                    LUCKYNUM = basePrice;
+                                                            }
+                                                            else {
+                                                                LUCKYNUM = Math.floor((Math.random()*(MAX-MIN)+MIN) % total);
+                                                                if(LUCKYNUM === 0)
+                                                                    LUCKYNUM = total;
+                                                            }
+                                                            console.log("LUCKYNUM: " + LUCKYNUM);
+                                                            LOTTERY_POOL[auctionid] = 0;
+                                                            if(LUCKYNUM <= total) {
+                                                                // TODO someone got hit
+                                                                lotteryResultModel.find({auctionID: auctionid, paymentState:true})
+                                                                    .sort({timeStamp: 1})
+                                                                    .exec(function (err, docs) {
+                                                                        if (err) {
+                                                                            console.log(err);
+                                                                        }
+                                                                        else if(docs.length !== 0){
+                                                                            var region,passengerID,lotterynum;
+                                                                            do {
+                                                                                var cell = docs[docs.length - 1].id;
+                                                                                if (!candidateID.includes(cell)) {
+                                                                                    candidateID.push(docs[docs.length - 1].id);
+                                                                                    region = getParticipateRegion(docs[docs.length - 1].luckyRegion);
+                                                                                    passengerID = docs[docs.length - 1].id;
+                                                                                    lotterynum = docs[docs.length - 1].lotterynum;
+                                                                                    //console.log(passengerID + ": " + region);
+                                                                                    var tag = 0;
+                                                                                    if (getLuckyPerson(region, LUCKYNUM) && tag === 0) {
                                                                                         LUCKYID = passengerID;
                                                                                         console.log("find the lucky one: " + LUCKYID);
-                                                                                        lotteryResultModel.findOneAndUpdate({
-                                                                                            auctionID: auctionid,
-                                                                                            id: LUCKYID
-                                                                                        }, {hit: true}, function (err, doc) {
-                                                                                            if (err) {
-                                                                                                console.log(err);
+                                                                                        flightInfoModel.findOne({id: LUCKYID, flight: flight, date: date}, function (err, arr) {
+                                                                                            if(err){
+                                                                                                console.log("Error: " + err);
                                                                                             }
                                                                                             else {
-                                                                                                userTokenModel.find({id: LUCKYID}, function (err, lists) {
-                                                                                                    if (err) {
+                                                                                                lotteryRecordModel.create({
+                                                                                                    auctionID: auctionid,
+                                                                                                    flight: flight,
+                                                                                                    id: LUCKYID,
+                                                                                                    name: arr.name,
+                                                                                                    tel: arr.tel,
+                                                                                                    seat: arr.seat,
+                                                                                                    lotterynum: lotterynum,
+                                                                                                    luckyRegion: region,
+                                                                                                    luckynum: LUCKYNUM,
+                                                                                                    total: total
+                                                                                                }, function (err) {
+                                                                                                    if(err){
                                                                                                         console.log("Error: " + err);
                                                                                                     }
                                                                                                     else {
-                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                        Xinge_Option.message.title = "Flight updating service message";
-                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，以" + LUCKYNUM + "的幸运数字，成功获得商务舱位，请您通过app进行支付。";
-                                                                                                        xinge.send(Xinge_Option, function (err, result) {
-                                                                                                            if (err) {
-                                                                                                                console.log('ERROR: ' + err);
-                                                                                                            }
-                                                                                                            console.log(result);
-                                                                                                        });
-                                                                                                        var recordData = new lotteryRecordModel({
-                                                                                                            auctionID: auctionid,
-                                                                                                            flight: flight,
-                                                                                                            id: LUCKYID,
-                                                                                                            name: lists[0].name,
-                                                                                                            tel: lists[0].tel,
-                                                                                                            seat: doc.seat,
-                                                                                                            lotterynum: doc.lotterynum,
-                                                                                                            luckyRegion: doc.luckyRegion,
-                                                                                                            luckynum: LUCKYNUM,
-                                                                                                            total: total
-                                                                                                        });
-                                                                                                        lotteryRecordModel.find({
-                                                                                                            auctionID: auctionid,
-                                                                                                            id: LUCKYID
-                                                                                                        }, function (err, arr) {
-                                                                                                            if (err) {
-                                                                                                                console.log(err);
-                                                                                                            }
-                                                                                                            else {
-                                                                                                                if (arr.length === 0) {
-                                                                                                                    recordData.save(function (err) {
-                                                                                                                        if (err) {
-                                                                                                                            console.log(err);
-                                                                                                                        }
-                                                                                                                        else {
-                                                                                                                            console.log("lottery record saved");
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                }
-                                                                                                                else {
-                                                                                                                    console.log("Error: repeat lottery record");
-                                                                                                                }
-                                                                                                            }
-                                                                                                        });
+                                                                                                        console.log("lottery record saved");
+                                                                                                        tag = 1;
                                                                                                     }
+                                                                                                })
+                                                                                            }
+                                                                                        });
+                                                                                        // sending the winner
+                                                                                        userTokenModel.findOne({id: LUCKYID}, function (err, lists) {
+                                                                                            if (err) {
+                                                                                                console.log("Error: " + err);
+                                                                                            }
+                                                                                            else {
+                                                                                                Xinge_Option.device_token = lists.deviceToken;
+                                                                                                Xinge_Option.message.title = "Flight updating service message";
+                                                                                                Xinge_Option.message.content = "尊敬的乘客" + lists.name + "您好，您所竞拍的" + flight + "号航班，以" + LUCKYNUM + "的幸运数字，成功获得商务舱位，请您通过app进行支付。";
+                                                                                                xinge.send(Xinge_Option, function (err, result) {
+                                                                                                    if (err) {
+                                                                                                        console.log('ERROR: ' + err);
+                                                                                                    }
+                                                                                                    console.log(result);
+                                                                                                });
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                    else {
+                                                                                        userTokenModel.findOne({id: passengerID}, function (err, lists) {
+                                                                                            if (err) {
+                                                                                                console.log("Error: " + err);
+                                                                                            }
+                                                                                            else {
+                                                                                                Xinge_Option.device_token = lists.deviceToken;
+                                                                                                Xinge_Option.message.title = "Flight updating service message";
+                                                                                                Xinge_Option.message.content = "尊敬的乘客" + lists.name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                                xinge.send(Xinge_Option, function (err, result) {
+                                                                                                    if (err) {
+                                                                                                        console.log('ERROR: ' + err);
+                                                                                                    }
+                                                                                                    console.log(result);
                                                                                                 });
                                                                                             }
                                                                                         });
                                                                                     }
                                                                                 }
-                                                                                candidateID.forEach(function (doc, index) {
-                                                                                    flightInfoModel.update({
-                                                                                        flight: flight,
-                                                                                        id: doc
-                                                                                    }, {userstatus: 1}, function (err) {
-                                                                                        if (err) {
-                                                                                            console.log(err);
-                                                                                        }
-                                                                                        else {
-                                                                                            if (doc !== LUCKYID) {
-                                                                                                userTokenModel.find({id: doc}, function (err, lists) {
-                                                                                                    if (err) {
-                                                                                                        console.log("Error: " + err);
-                                                                                                    }
-                                                                                                    else {
-                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                        Xinge_Option.message.title = "Flight updating service message";
-                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                        xinge.send(Xinge_Option, function (err, result) {
-                                                                                                            if (err) {
-                                                                                                                console.log('ERROR: ' + err);
-                                                                                                            }
-                                                                                                            console.log(result);
-                                                                                                        });
-                                                                                                    }
-                                                                                                });
-                                                                                            }
-                                                                                        }
-                                                                                    });
-                                                                                });
-                                                                            }
-                                                                        });
+                                                                                docs.pop();
+                                                                            } while (docs.length !== 0);
+                                                                        }
+                                                                });
+                                                            }
+                                                            else {
+                                                                // TODO no one got hit
+                                                                do {
+                                                                    var cell = docs[docs.length - 1].id;
+                                                                    if (!candidateID.includes(cell)) {
+                                                                        candidateID.push(docs[docs.length - 1].id);
+                                                                    }
+                                                                    docs.pop();
+                                                                } while (docs.length !== 0);
+
+                                                                lotteryRecordModel.create({
+                                                                    auctionID: auctionid,
+                                                                    flight: flight,
+                                                                    id: "",
+                                                                    name: "",
+                                                                    tel: "",
+                                                                    seat: "",
+                                                                    lotterynum: "",
+                                                                    luckyRegion: "",
+                                                                    luckynum: LUCKYNUM
+                                                                }, function (err, arr) {
+                                                                    if (err) {
+                                                                        console.log(err);
                                                                     }
                                                                     else {
-                                                                        // TODO no one got hit
-                                                                        for (var i = 0; i < docs.length; i++) {
-                                                                            var region = getParticipateRegion(docs[i].luckyRegion);
-                                                                            var passengerID = docs[i].id;
-                                                                            console.log(passengerID + ": " + region);
-                                                                            candidateID.push(passengerID);
-                                                                        }
-                                                                        var recordData = new lotteryRecordModel({
-                                                                            auctionID: auctionid,
-                                                                            flight: flight,
-                                                                            id: "",
-                                                                            name: "",
-                                                                            tel: "",
-                                                                            seat: "",
-                                                                            lotterynum: "",
-                                                                            luckyRegion: "",
-                                                                            luckynum: LUCKYNUM
-                                                                        });
-                                                                        lotteryRecordModel.find({
-                                                                            auctionID: auctionid,
-                                                                            id: LUCKYID
-                                                                        }, function (err, arr) {
-                                                                            if (err) {
-                                                                                console.log(err);
-                                                                            }
-                                                                            else {
-                                                                                if (arr.length === 0) {
-                                                                                    recordData.save(function (err) {
-                                                                                        if (err) {
-                                                                                            console.log(err);
-                                                                                        }
-                                                                                        else {
-                                                                                            console.log("lottery record saved");
-                                                                                            candidateID.forEach(function (doc, index) {
-                                                                                                flightInfoModel.update({
-                                                                                                    flight: flight,
-                                                                                                    id: doc
-                                                                                                }, {userstatus: 1}, function (err) {
-                                                                                                    if (err) {
-                                                                                                        console.log(err);
-                                                                                                    }
-                                                                                                    else {
-                                                                                                        userTokenModel.find({id: doc}, function (err, lists) {
-                                                                                                            if (err) {
-                                                                                                                console.log("Error: " + err);
-                                                                                                            }
-                                                                                                            else {
-                                                                                                                Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                    if (err) {
-                                                                                                                        console.log('ERROR: ' + err);
-                                                                                                                    }
-                                                                                                                    console.log(result);
-                                                                                                                });
-                                                                                                            }
-                                                                                                        });
-                                                                                                    }
-                                                                                                });
-                                                                                            });
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                                else {
-                                                                                    console.log("Error: repeat lottery record");
-                                                                                }
-                                                                            }
-                                                                        });
+                                                                        console.log("No winner");
+                                                                        console.log("lottery record saved");
                                                                     }
-                                                                }
-                                                            });
+                                                                });
+
+                                                                candidateID.forEach(function (doc) {
+                                                                    userTokenModel.findOne({id: doc}, function (err, lists) {
+                                                                        if (err) {
+                                                                            console.log("Error: " + err);
+                                                                        }
+                                                                        else {
+                                                                            Xinge_Option.device_token = lists.deviceToken;
+                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists.name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                if (err) {
+                                                                                    console.log('ERROR: ' + err);
+                                                                                }
+                                                                                console.log(result);
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                });
+                                                            }
                                                         }
                                                     });
                                                 }
                                             });
-                                        };
-                                        setTimeout(updateState, timelap * 1000);
-
-                                    }
-                                    res.end();
-                                });
+                                        }
+                                    });
+                                };
+                                setTimeout(updateState, timelap * 1000);
+                                res.end();
                             }
                         });
                     }
                     else {
-                        console.log(403 + ': repeated auction id save failure');
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                 }

@@ -14,7 +14,7 @@ var lotteryResultSchema = new mongoose.Schema({
     auctionID: { type:String },
     id: { type:String },
     flight: { type:String },
-    seat: { type:String },
+    //seat: { type:String },
     biddingPrice: { type:Number },
     lotterynum: { type:Number },
     timeStamp: { type:Number },
@@ -35,14 +35,15 @@ var auctionParamSchema = new mongoose.Schema({
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
-var flightInfoSchema = new mongoose.Schema({
-    id: { type:String },
-    date: { type:String },
+var userStateSchema = new mongoose.Schema({
+    userID: { type:String },
     flight: { type:String },
-    seat: { type:String },
-    userstatus: { type: Number }
-},{collection:"flightInfo"});
-var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+    date: { type:String },
+    auctionID: { type:String },
+    userstatus: { type:Number },
+    timeStamp: { type:Number }
+},{collection:"userState"});
+var userStateModel = db.model("userState", userStateSchema, "userState");
 
 var userTokenSchema = new mongoose.Schema({
     Token: {type: String}
@@ -66,6 +67,20 @@ function regionFormat(arr){
     return res;
 }
 
+function zeroFill (i) {
+    return (i < 10 ? '0' : '') + i
+}
+
+var objectArraySort = function (keyName) {
+    return function (objectN, objectM) {
+        var valueN = objectN[keyName];
+        var valueM = objectM[keyName];
+        if (valueN < valueM) return 1;
+        else if (valueN > valueM) return -1;
+        else return 0
+    }
+};
+
 router.post('/',function (req, res, next) {
     var passengerID = "";
     var flight = req.query.flight;
@@ -78,151 +93,100 @@ router.post('/',function (req, res, next) {
         price: -1
     };
 
+    var nowDate = new Date();
+    var date = nowDate.getFullYear() + zeroFill(nowDate.getMonth() + 1) + zeroFill(nowDate.getDate());
+
     if(typeof(price) === "undefined" || price <= 0){
         console.log("Error: price params error");
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.write(JSON.stringify(resdata));
+        res.json(resdata);
         res.end();
         return;
     }
-    userTokenModel.find({Token:token}, function (err, docs) {
+    userTokenModel.findOne({Token:token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
+            res.end();
+        }
+        else if (docs === null) {
+            console.log(400 + ": Token is wrong");
+            resdata.result = -1;
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
-                console.log(400 + ": Token is wrong");
-                resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
-                res.end();
-            }
-            else {
-                jwt.verify(token, 'secret', function (error1, decoded) {
-                    if (error1) {
-                        console.log(error1);
-                        console.log(403 + ": Token is not valid");
-                        resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
-                        res.end();
-                    }
-                    else {
-                        passengerID = decoded.id;
+            jwt.verify(token, 'secret', function (error1, decoded) {
+                if (error1) {
+                    console.log(error1);
+                    console.log(403 + ": Token is not valid");
+                    resdata.result = -1;
+                    res.json(resdata);
+                    res.end();
+                }
+                else {
+                    passengerID = decoded.id;
 
-                        flightInfoModel.find({id: passengerID, flight: flight}, function (err, docs) {
-                            if (err) {
-                                console.log(err);
-                                console.log(500 + ": Server error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+                    auctionParamModel.findOne({auctionID: auctionid}, function (err, docs) {
+                        if (err) {
+                            console.log(err);
+                            console.log(500 + ": Server error");
+                            res.json(resdata);
+                            res.end();
+                        }
+                        else {
+                            if (docs === null) {
+                                console.log(404 + ": auctionID not exist");
+                                res.json(resdata);
+                                res.end();
+                            }
+                            else if (docs.auctionState === -1 || docs.auctionState === 0 || docs.auctionState === 2) {
+                                console.log(403 + ": error auctionState " + docs.auctionState);
+                                res.json(resdata);
                                 res.end();
                             }
                             else {
-                                if (docs.length === 0) {
-                                    console.log(404 + ": Passenger not found on flight" + flight);
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    var resultData = new lotteryResultModel({
-                                        auctionID: auctionid,
-                                        id: passengerID,
-                                        flight: flight,
-                                        seat: docs[0].seat,
-                                        biddingPrice: price,
-                                        lotterynum: 0,
-                                        timeStamp: Date.parse(new Date()),
-                                        paymentState: false,
-                                        luckyRegion: [],
-                                        hit: false
-                                    });
-                                    auctionParamModel.find({auctionID: auctionid}, function (err, docs) {
-                                        if (err) {
-                                            console.log(err);
-                                            console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
-                                        else {
-                                            if (docs.length === 0) {
-                                                console.log(404 + ": auctionID not exist");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
-                                            }
-                                            else if (docs[0].auctionState === -1 || docs[0].auctionState === 0 || docs[0].auctionState === 2) {
-                                                console.log(403 + ": error auctionState " + docs[0].auctionState);
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                lotteryResultModel.create({
+                                    auctionID: auctionid,
+                                    id: passengerID,
+                                    flight: flight,
+                                    biddingPrice: price,
+                                    lotterynum: 0,
+                                    timeStamp: Date.parse(new Date()),
+                                    paymentState: false,
+                                    luckyRegion: [],
+                                    hit: false
+                                },function (err) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log(500 + ": Server error");
+                                        res.json(resdata);
+                                        res.end();
+                                    }
+                                    else {
+                                        console.log('saving success');
+                                        var now_time = Date.parse(new Date());
+                                        userStateModel.create({userID:passengerID, flight:flight, date:date, auctionID:auctionid, userstatus:1, timeStamp:now_time}, function (err) {
+                                            if (err) {
+                                                console.log(500 + ": Server error");
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                             else {
-                                                lotteryResultModel.find({auctionID:auctionid,id:passengerID}, function (err, docs) {
-                                                    if (err) {
-                                                        console.log(err);
-                                                        console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
-                                                        res.end();
-                                                    }
-                                                    else {
-                                                        if (docs.length === 0) {
-                                                            resultData.save(function (err) {
-                                                                if (err) {
-                                                                    console.log(err);
-                                                                    console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                                else {
-                                                                    console.log('saving success');
-                                                                    resdata.bid = 1;
-                                                                    resdata.price = price;
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                            });
-                                                        }
-                                                        else {
-                                                            lotteryResultModel.update({auctionID:auctionid, id:passengerID}, {biddingPrice:price, timeStamp:Date.parse(new Date()), paymentState:false}, function (err) {
-                                                                if(err){
-                                                                    console.log(err);
-                                                                    console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                                else {
-                                                                    console.log('updating success');
-                                                                    resdata.bid = 1;
-                                                                    resdata.price = price;
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                            });
-                                                        }
-                                                    }
-                                                });
+                                                resdata.bid = 1;
+                                                resdata.price = price;
+                                                res.json(resdata);
+                                                res.end();
                                             }
-                                        }
-                                    })
-                                }
+                                        });
+                                    }
+                                });
                             }
-                        });
-                    }
-                });
-            }
+                        }
+                    });
+                }
+            });
         }
     })
 });
@@ -240,87 +204,95 @@ router.get('/', function (req, res, next) {
         paid: true
     };
 
-    userTokenModel.find({Token: token}, function (err, docs) {
+    userTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
+            res.end();
+        }
+        else if (docs === null) {
+            console.log(400 + ": Token is wrong");
+            resdata.result = -1;
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
-                console.log(400 + ": Token is wrong");
-                resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
-                res.end();
-            }
-            else {
-                jwt.verify(token, 'secret', function (error1, decoded) {
-                    if (error1) {
-                        console.log(error1);
-                        console.log(403 + ": Token is not valid");
-                        resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
-                        res.end();
-                    }
-                    else {
-                        passengerID = decoded.id;
-                        auctionParamModel.find({auctionID:auctionid, flight:flight}, function (err, docs) {
-                            if(err){
-                                console.log(500 + ": Server error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+            jwt.verify(token, 'secret', function (error1, decoded) {
+                if (error1) {
+                    console.log(error1);
+                    console.log(403 + ": Token is not valid");
+                    resdata.result = -1;
+                    res.json(resdata);
+                    res.end();
+                }
+                else {
+                    passengerID = decoded.id;
+                    auctionParamModel.findOne({auctionID:auctionid, flight:flight}, function (err, docs) {
+                        if(err){
+                            console.log(500 + ": Server error");
+                            res.json(resdata);
+                            res.end();
+                        }
+                        else if(docs === null){
+                                console.log(404 + ": lottery auction not found");
+                                res.json(resdata);
                                 res.end();
+                        }
+                        else {
+                            if(docs.auctionState === 1){
+                                resdata.total = POOL.lotteryPool[auctionid];
                             }
                             else {
-                                if(docs.length === 0){
-                                    console.log(404 + ": lottery auction not found");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    if(docs[0].auctionState === 1){
-                                        resdata.total = POOL.lotteryPool[auctionid];
+                                resdata.total = docs.count;
+                            }
+                            lotteryResultModel.find({auctionID:auctionid, flight:flight, id:passengerID})
+                                .exec(function (err, docs) {
+                                    if (err) {
+                                        console.log(500 + ": Server error");
+                                        res.json(resdata);
+                                        res.end();
                                     }
                                     else {
-                                        resdata.total = docs[0].count;
-                                    }
-                                    lotteryResultModel.find({auctionID:auctionid, flight:flight, id:passengerID}, function (err, docs) {
-                                        if (err) {
-                                            console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                        if(docs.length === 0){
+                                            console.log(404 + ': passenger not found in lotteryResult');
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
-                                            if(docs.length === 0){
-                                                console.log(404 + ': passenger not found in lotteryResult');
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
-                                                res.end();
+                                            docs.sort(objectArraySort('timeStamp'));
+                                            resdata.paid = docs[0].paymentState;
+                                            if(docs[0].paymentState === false && docs.length !== 1){
+                                                lotteryResultModel.find({auctionID:auctionid, flight:flight, id:passengerID, paymentState:true})
+                                                    .exec(function (err, docs) {
+                                                        if (err) {
+                                                            console.log(500 + ": Server error");
+                                                            res.json(resdata);
+                                                            res.end();
+                                                        }
+                                                        else {
+                                                            docs.sort(objectArraySort('timeStamp'));
+                                                            resdata.lotterynum = docs[0].lotterynum;
+                                                            resdata.luckyRegion = regionFormat(docs[0].luckyRegion);
+                                                            res.json(resdata);
+                                                            res.end();
+                                                        }
+                                                    });
                                             }
                                             else {
                                                 resdata.lotterynum = docs[0].lotterynum;
                                                 resdata.luckyRegion = regionFormat(docs[0].luckyRegion);
-                                                resdata.paid = docs[0].paymentState;
-                                                console.log(resdata);
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                         }
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
-            }
+                                    }
+                            });
+                        }
+                    });
+                }
+            });
         }
     });
 });

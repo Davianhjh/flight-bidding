@@ -76,8 +76,8 @@ var auctionResultSchema = new mongoose.Schema({
     name: { type:String },
     id: { type:String },
     tel: { type:String },
-    seat: { type:String },
-    price: { type:String },
+    seatnum: { type:String },
+    price: { type:Number },
     paid: { type:Boolean }
 },{collection:"auctionResult"});
 var auctionResultModel = db.model("auctionResult", auctionResultSchema,"auctionResult");
@@ -102,17 +102,6 @@ var transactionInfoSchema = new mongoose.Schema({
     signedstr: { type:String }
 },{collection:"transactionInfo"});
 var transactionInfoModel = db.model("transactionInfo", transactionInfoSchema, "transactionInfo");
-
-var biddingResultSchema = new mongoose.Schema({
-    auctionID : { type:String },
-    flight: { type:String },
-    id: { type:String },
-    biddingPrice: { type:Number },
-    seat: { type:String },
-    paymentState: { type:Boolean },
-    paymentPrice:{ type:Number }
-},{collection:"biddingResult"});
-var biddingResultModel = db.model("biddingResult", biddingResultSchema,"biddingResult");
 
 var userTokenSchema = new mongoose.Schema({
     Token: { type:String },
@@ -200,29 +189,6 @@ function getSign(params) {
         console.log('err', err)
     }
 }
-/*
-function getVerifyParams(params) {
-    var sPara = [];
-    if(!params) return null;
-    for(var key in params) {
-        if((!params[key]) || key === "sign" || key === "sign_type") {
-            continue;
-        }
-        sPara.push([key, params[key]]);
-    }
-    sPara = sPara.sort();
-    var prestr = '';
-    for(var i2 = 0; i2 < sPara.length; i2++) {
-        var obj = sPara[i2];
-        if(i2 === sPara.length - 1) {
-            prestr = prestr + obj[0] + '=' + obj[1] + '';
-        } else {
-            prestr = prestr + obj[0] + '=' + obj[1] + '&';
-        }
-    }
-    return prestr;
-}
-*/
 function verifySign(params, sign, algorithm) {
     try {
         var publicPem = fs.readFileSync('/home/hujinhua/flight-updating-server/Alipay_public.pem');
@@ -248,27 +214,25 @@ router.post('/',function (req, res, next) {
     var auctionid = req.query.auctionid;
     var method = req.query.method;
     var token = req.headers['agi-token'];
-    //var user_ip = req.headers['x-forward-for'] || req.connection.remoteAddress;
     var user_ip = req.connection.remoteAddress;
 
     var resdata = {
         result : 1
     };
-    userTokenModel.find({Token: token}, function (err, docs) {
+    userTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
@@ -277,36 +241,33 @@ router.post('/',function (req, res, next) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
                         passengerID = decoded.id;
 
                         if (action === "createBilling") {
-                            var auctionType = parseInt(auctionid.slice(auctionid.length-1));
+                            var auctionType = parseInt(auctionid.slice(auctionid.length-3,auctionid.length-1));
                             if(auctionType === 1 || auctionType ===2 || auctionType === 3 || auctionType === 4) {
-                                auctionResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
+                                auctionResultModel.findOne({id: passengerID, auctionID: auctionid}, function (err, docs) {
                                     if (err) {
                                         console.log(err);
                                         console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        if (docs.length === 0) {
+                                        if (docs === null) {
                                             console.log(404 + ": Passenger did not win the bidding on flight " + flight);
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
                                             var timestamp = Date.parse(new Date());
                                             var transactionid = getTransID(auctionid + passengerID) + SALT.toString();
                                             console.log(transactionid);
-                                            var total_amount = docs[0].price;
+                                            var total_amount = docs.price;
 
                                             if (method === "Alipay") {
                                                 resdata = {
@@ -333,21 +294,19 @@ router.post('/',function (req, res, next) {
                                                     "paymentState": false,
                                                     "signedstr": signedstr
                                                 });
-                                                transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
+                                                transactionInfoModel.findOne({transactionID: transactionid}, function (err, docs) {
                                                     if (err) {
                                                         console.log(err);
                                                         console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
-                                                    else if (docs.length === 0) {
+                                                    else if (docs === null) {
                                                         transactionData.save(function (err) {
                                                             if (err) {
                                                                 console.log(err);
                                                                 console.log(500 + ": Server error");
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                             else {
@@ -355,20 +314,17 @@ router.post('/',function (req, res, next) {
                                                                 resdata.signedstr = signedstr;
                                                                 resdata.transactionID = transactionid;
                                                                 //console.log(signedstr);
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                         });
                                                     }
                                                     else {
                                                         console.log(403 + ': repeated transaction id');
-                                                        resdata.signedstr = docs[0].signedstr;
+                                                        resdata.signedstr = docs.signedstr;
                                                         resdata.transactionID = transactionid;
                                                         resdata.status = true;
-                                                        //console.log(signedstr);
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                 });
@@ -386,16 +342,14 @@ router.post('/',function (req, res, next) {
                                                         console.log("return_msg: " + result.return_msg);
                                                         resdata.prepay_id = "";
                                                         resdata.signedstr = "";
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else if (result.result_code !== 'SUCCESS') {
                                                         console.log("result_code" + result.return_code);
                                                         resdata.prepay_id = "";
                                                         resdata.signedstr = "";
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else {
@@ -420,8 +374,7 @@ router.post('/',function (req, res, next) {
                                                         resdata.noncestr = data.noncestr;
                                                         resdata.timestamp = timeStamp;
                                                         resdata.sign = data.sign;
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                 });
@@ -431,19 +384,17 @@ router.post('/',function (req, res, next) {
                                 });
                             }
                             else if(auctionType === 5){
-                                advancedAuctionResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
+                                advancedAuctionResultModel.findOne({id: passengerID, auctionID: auctionid}, function (err, docs) {
                                     if (err) {
                                         console.log(err);
                                         console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        if (docs.length === 0) {
+                                        if (docs === null) {
                                             console.log(404 + ": Passenger not participate in the bidding on flight " + flight);
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
@@ -451,7 +402,7 @@ router.post('/',function (req, res, next) {
                                             var transactionid = getTransID(auctionid + passengerID) + SALT.toString();
                                             SALT++;
                                             console.log(transactionid);
-                                            var total_amount = docs[0].price;
+                                            var total_amount = docs.price;
 
                                             if (method === "Alipay") {
                                                 resdata = {
@@ -478,21 +429,19 @@ router.post('/',function (req, res, next) {
                                                     "paymentState": false,
                                                     "signedstr": signedstr
                                                 });
-                                                transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
+                                                transactionInfoModel.findOne({transactionID: transactionid}, function (err, docs) {
                                                     if (err) {
                                                         console.log(err);
                                                         console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
-                                                    else if (docs.length === 0) {
+                                                    else if (docs === null) {
                                                         transactionData.save(function (err) {
                                                             if (err) {
                                                                 console.log(err);
                                                                 console.log(500 + ": Server error");
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                             else {
@@ -500,20 +449,18 @@ router.post('/',function (req, res, next) {
                                                                 resdata.signedstr = signedstr;
                                                                 resdata.transactionID = transactionid;
                                                                 console.log(signedstr);
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                         });
                                                     }
                                                     else {
                                                         console.log(403 + ': repeated transaction id');
-                                                        resdata.signedstr = docs[0].signedstr;
+                                                        resdata.signedstr = docs.signedstr;
                                                         resdata.transactionID = transactionid;
                                                         resdata.status = true;
                                                         //console.log(signedstr);
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                 });
@@ -531,16 +478,14 @@ router.post('/',function (req, res, next) {
                                                         console.log("return_msg: " + result.return_msg);
                                                         resdata.prepay_id = "";
                                                         resdata.signedstr = "";
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else if (result.result_code !== 'SUCCESS') {
                                                         console.log("result_code" + result.return_code);
                                                         resdata.prepay_id = "";
                                                         resdata.signedstr = "";
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else {
@@ -565,8 +510,7 @@ router.post('/',function (req, res, next) {
                                                         resdata.noncestr = data.noncestr;
                                                         resdata.timestamp = timeStamp;
                                                         resdata.sign = data.sign;
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                 });
@@ -591,8 +535,7 @@ router.post('/',function (req, res, next) {
                                     sign_type = "RSA-SHA1";
                                 else {
                                     console.log(403 + ': sign_type is not correct');
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                     return;
                                 }
@@ -603,60 +546,42 @@ router.post('/',function (req, res, next) {
                                     var total_amount = alipay_trade_app_pay_response.total_amount;
                                     var seller_id = alipay_trade_app_pay_response.seller_id;
                                     var app_id = alipay_trade_app_pay_response.app_id;
-                                    transactionInfoModel.find({transactionID: tradeID}, function (err, docs) {
+                                    transactionInfoModel.findOne({transactionID: tradeID}, function (err, docs) {
                                         if (err) {
                                             console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
-                                        else if (docs.length === 0) {
+                                        else if (docs === null) {
                                             console.log(403 + ': out_trade_no is not correct');
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
-                                            if (docs[0].amount == total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
+                                            if (docs.amount === total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
                                                 resdata.acknowledged = true;
                                                 transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
                                                     if (err) {
                                                         console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else {
                                                         var auctionType = parseInt(auctionid.slice(auctionid.length - 1));
                                                         if (auctionType === 1 || auctionType === 2 || auctionType === 3 || auctionType === 4) {
-                                                            biddingResultModel.update({
+                                                            auctionResultModel.update({
                                                                 auctionID: auctionid,
                                                                 id: passengerID
-                                                            }, {paymentState: true}, function (err) {
+                                                            }, {paid: true}, function (err) {
                                                                 if (err) {
                                                                     console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
+                                                                    res.json(resdata);
                                                                     res.end();
                                                                 }
                                                                 else {
-                                                                    auctionResultModel.update({
-                                                                        auctionID: auctionid,
-                                                                        id: passengerID
-                                                                    }, {paid: true}, function (err) {
-                                                                        if (err) {
-                                                                            console.log(500 + ": Server error");
-                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                            res.write(JSON.stringify(resdata));
-                                                                            res.end();
-                                                                        }
-                                                                        else {
-                                                                            console.log("payment confirmed successfully");
-                                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                            res.write(JSON.stringify(resdata));
-                                                                            res.end();
-                                                                        }
-                                                                    });
+                                                                    console.log("payment confirmed successfully");
+                                                                    res.json(resdata);
+                                                                    res.end();
                                                                 }
                                                             });
                                                         }
@@ -667,14 +592,12 @@ router.post('/',function (req, res, next) {
                                                             }, {paid: true}, function (err) {
                                                                 if (err) {
                                                                     console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
+                                                                    res.json(resdata);
                                                                     res.end();
                                                                 }
                                                                 else {
                                                                     console.log("payment confirmed successfully");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
+                                                                    res.json(resdata);
                                                                     res.end();
                                                                 }
                                                             });
@@ -684,8 +607,7 @@ router.post('/',function (req, res, next) {
                                             }
                                             else {
                                                 console.log("total_amount / seller_id / app_id not correct");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                         }
@@ -693,8 +615,7 @@ router.post('/',function (req, res, next) {
                                 }
                                 else {
                                     console.log(403 + ": signature verify failed");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                 }
                             }

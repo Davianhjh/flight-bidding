@@ -1,14 +1,23 @@
 $(function () {
     var formdata = [];
     var totalcell;
+    var currentStage = "1";
 
-    (function test(){
+    var loaddata = function(stage){
+        // 初始化,清空数据
+        formdata = [];
+        totalcell = 0;
+
         $.ajax({
-        url: '/adminInfo',
+        // url: '/adminInfo',
+        url: '/stageList',
         type: 'GET',
         async: false,
         beforeSend: function (request) {
             request.setRequestHeader("Agi-token", localStorage.agiToken);
+        },
+        data:{
+            "stage": stage,
         },
         success: function(data){
             if (data.result == 1) {
@@ -20,26 +29,32 @@ $(function () {
                     formitem.destination = item.destination;
                     formitem.departure = item.departure;
                     formitem.landing = item.landing;
+                    formitem.type = item.type;
                     // 获取竞拍状态
+                    // console.log("状态" + item.auctionState);
                     switch (item.auctionState) {
                         case "-1": {
                             // console.log("未设置");
                             formitem.jpauctionState = "未设置";
+                            formitem.operate = false;
                             break;
                         }
                         case "1": {
                             // console.log("进行中");
                             formitem.jpauctionState = "进行中";
+                            formitem.operate = true;
                             break;
                         }
                         case "2": {
                             // console.log("已结束");
                             formitem.jpauctionState = "已结束";
+                            formitem.operate = true;
                             break;
                         }
                         default: {
                             // console.log("未设置");
                             formitem.jpauctionState = "未设置";
+                            formitem.operate = false;
                             break;
                         }
                     };
@@ -88,6 +103,7 @@ $(function () {
                     }
                     formdata.push(formitem);
                 })
+                // 获取总共条数
                 totalcell = formdata.length;
             }
 
@@ -97,15 +113,18 @@ $(function () {
             location.href = "/";
         }
     });
-    })();
+    }
 
-    
+    loaddata(currentStage);
 
     var Main;
     Main = {
         data() {
             return {
+                stage:"1",
+                activeIndex: "1", // 当前激活菜单的 index
                 isedit: false,
+                // isEditButton: formdata.isshow, // 编辑按钮是否可以点击
                 currentPage: 1,
                 searchValue: "",
                 tableData : formdata,
@@ -124,8 +143,49 @@ $(function () {
             };
         },
         methods: {
+            reflash(){
+                // console.log(this.stage);
+                loaddata(this.stage);
+                this.tableData = formdata;
+                this.totalValue = totalcell;
+            },
+            handleSelect(key, keyPath) {
+                var context = this;
+                switch (key) {
+                    case "1": {
+                        loaddata("1");
+                        context.tableData = formdata;
+                        context.totalValue = totalcell;
+                        context.stage = "1";
+                        break;
+                    }
+                    case "2": {
+                        loaddata("2");
+                        context.tableData = formdata;
+                        context.totalValue = totalcell;
+                        context.stage = "2";
+                        console.log(context.stage);
+                        break;
+                    }
+                    case "3": {
+                        loaddata("3");
+                        context.tableData = formdata;
+                        context.totalValue = totalcell;
+                        context.stage = "3";
+                        break
+                    }
+                    default: {
+                        console.log("缺省设置为提前竞拍");
+                        loaddata("1");
+                        context.tableData = formdata;
+                        context.totalValue = totalcell;
+                        context.stage = "1";
+                        break;
+                    }
+                }
+            },
             filterTag(value, row) {
-                console.log("debug here!!!" + value + "  and  " + row.type);
+                // console.log("debug here!!!" + value + "  and  " + row.type);
             },
             formchange() {
                 var context = this;
@@ -148,18 +208,16 @@ $(function () {
                 context.tableData = searchArry;
             },
             clickCheck(index, row) {
-                console.log(index, row.flight, row.date);
-                location.href = "/result#" + row.flight + "$" + row.date;
+                // console.log(index, row.flight, row.date, this.stage, row.type);
+                location.href = "/result#" + row.flight + "$" + row.date + "$" + this.stage + "$" + row.type;
             },
             clickEdit(index, row) {
                 this.dialogFormVisible = true;
-                console.log(index, row);
-                console.log(row.date, row.flight);
                 this.form.date = row.date;
                 this.form.flight = row.flight;
             },
             handleSubmit() {
-                console.log(this.form.region);
+                // console.log(this.form.region);
                 this.dialogFormVisible = false;
                 var context = this;
 
@@ -185,7 +243,8 @@ $(function () {
                         ],
                         "type": this.form.region,                   //竞拍类型（1,2,3,4,5）
                         "price": this.form.price,                   //竞拍底价（512）
-                        "seat": this.form.seat                      //竞拍座位数（可选）
+                        "seat": this.form.seat,                      //竞拍座位数（可选）
+                        "stage": this.stage,                        // 竞拍的阶段
                     },
                     success: function(respones){
                         if (respones.result == "1" && respones.repeat == "0" && respones.status == "1") {
@@ -206,10 +265,11 @@ $(function () {
                                     request.setRequestHeader("Agi-token", localStorage.agiToken);
                                 },
                                 data: {
-                                    flight: context.form.flight,
-                                    seatnum: context.form.seat,
-                                    type: context.form.region,
-                                    date: context.form.date,
+                                    "flight": context.form.flight,
+                                    "seatnum": context.form.seat,
+                                    "type": context.form.region,
+                                    "date": context.form.date,
+                                    "stage": context.stage,
                                 },
                                 success: function(res) {
                                     console.log("竞拍开始");

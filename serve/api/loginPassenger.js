@@ -31,19 +31,25 @@ router.get('/', function (req, res, next) {
     var pwd = req.query.password;
     var query = {id:id};
     var resdata = {};
-    userTokenModel.find(query, function (err, docs) {
-        if(docs.length === 0){
+    userTokenModel.findOne(query, function (err, docs) {
+        if(err){
+            console.log(err);
+            console.log(500 + ": Server error");
+            resdata.result = -1;
+            res.json(resdata);
+            res.end();
+        }
+        else if(docs === null){
             resdata = {
                 result: -1
             };
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
             console.log(404+": User not found");
         }
-        else if(docs[0].password === pwd){
-            var name = docs[0].name;
-            var phone = docs[0].tel;
+        else if(docs.password === pwd){
+            var name = docs.name;
+            var phone = docs.tel;
             var token = jwt.sign({
                 exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
                 id: id,
@@ -60,8 +66,7 @@ router.get('/', function (req, res, next) {
                         name: name,
                         phone: phone
                     };
-                    res.writeHead(200, {'Content-Type': 'application/json'});
-                    res.write(JSON.stringify(resdata));
+                    res.json(resdata);
                     res.end();
                 }
             })
@@ -70,8 +75,7 @@ router.get('/', function (req, res, next) {
             resdata = {
                 result: -1
             };
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
             console.log(403+": User/Password not match");
         }
@@ -87,21 +91,19 @@ router.post('/', function (req, res, next) {
         devicetoken: -1
     };
 
-    userTokenModel.find({Token: token}, function (err, docs) {
+    userTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
@@ -110,36 +112,31 @@ router.post('/', function (req, res, next) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
                         passengerID = decoded.id;
 
-                        if(docs[0].deviceToken === ''){
+                        if(docs.deviceToken === ''){
                             userTokenModel.update({Token:token}, {deviceToken:deviceToken}, function (err) {
                                 if(err){
                                     console.log(err);
                                     console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                 }
                                 else {
                                     console.log("deviceToken saved");
                                     resdata.devicetoken = 1;
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                 }
                             });
                         }
                         else {
-                            console.log(passengerID + "'s deviceToken already exist");
                             resdata.devicetoken = 0;
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.write(JSON.stringify(resdata));
+                            res.json(resdata);
                             res.end();
                         }
                     }

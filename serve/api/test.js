@@ -49,11 +49,72 @@ function getLuckyPerson(region, luckynum) {
     return false;
 }
 
+function zeroFill (i) {
+    if(i<10)
+        return '000' + i;
+    else if(i<100)
+        return '00' + i;
+    else if(i<1000)
+        return '0' + i;
+    else return i;
+}
+
+function getUserID(i){
+    var userID='Agiview' + zeroFill(i);
+    return userID;
+}
+
 router.get('/', function (req, res, next) {
     var candidateID = [];
     var LUCKYID = "";
     var auctionid = "20170818CZ6605LOT6";
     var LUCKYNUM = 83;
+    var arr = [];
+    var j = 10;
+    var k = 0;
+    for(var i=0;i<10;i++){
+        if(i%2 === 1) {
+            k=2;
+            j=Math.pow(i,2);
+        }
+        else {
+            k=1;
+            j=i;
+        }
+        var tmp = {
+            item1:k,
+            item2:j
+        };
+        arr.push(tmp);
+    }
+    //console.log(arr);
+    var objectArraySort = function (keyName) {
+        return function (objectN, objectM) {
+            var valueN = objectN[keyName];
+            var valueM = objectM[keyName];
+            if (valueN < valueM) return -1;
+            else if (valueN > valueM) return 1;
+            else return 0
+        }
+    };
+    var seat = 3;
+    var sortedRES = [];
+    var sortedID = [];
+    k = 0;
+    arr.sort(objectArraySort('item2'));
+    do {
+        var cell = arr[arr.length - 1].item1;
+        if(!sortedID.includes(cell)){
+            k++;
+            sortedRES.push(arr[arr.length-1]);
+            sortedID.push(cell);
+        }
+        arr.pop();
+    } while (k<seat && arr.length!==0);
+
+    console.log(sortedRES);
+
+    /*
     lotteryResultModel.find({auctionID: auctionid}, function (err, docs) {
         if (err) {
             console.log(err);
@@ -72,9 +133,10 @@ router.get('/', function (req, res, next) {
             res.end("finish testing");
         }
     });
+    */
 });
 
 module.exports = {
     router: router,
-    path: '/mytest'
+    path: '/test'
 };

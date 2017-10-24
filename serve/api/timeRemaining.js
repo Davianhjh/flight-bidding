@@ -13,7 +13,7 @@ var auctionParamSchema = new mongoose.Schema({
     timelap: { type:Number },
     startTime: { type:Number },
     auctionState: { type: Number },
-    auctionType: { type: Number }    //added
+    auctionType: { type: Number }
 },{collection:"auctionParam"});
 var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionParam");
 
@@ -33,88 +33,74 @@ router.get('/', function (req, res, next) {
         result: 1,
         totaltime: -1,
         timeleft: -1,
-        auctiontype: 0    //added
+        auctiontype: 0
     };
 
-    userTokenModel.find({Token:token}, function (err, docs) {
+    userTokenModel.findOne({Token:token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(err);
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (error1, decoded) {
+                jwt.verify(token, 'secret', function (error1) {
                     if (error1) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
-                        auctionParamModel.find({auctionID:auctionid}, function (err, docs) {
+                        auctionParamModel.findOne({auctionID:auctionid}, function (err, docs) {
                             if(err) {
                                 console.log(err);
                                 console.log(500 + ": Server error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+                                res.json(resdata);
                                 res.end();
                             }
                             else {
-                                if (docs.length === 0) {
+                                if (docs === null) {
                                     console.log(404+": auctionID is wrong, auction not found");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                 }
                                 else {
-                                    var timeLap = docs[0].timelap;
-                                    var auctionState = docs[0].auctionState;
-                                    var auctionType = docs[0].auctionType;
-                                    var startTime = docs[0].startTime;
+                                    var timeLap = docs.timelap;
+                                    var auctionState = docs.auctionState;
+                                    var auctionType = docs.auctionType;
+                                    var startTime = docs.startTime;
                                     if (auctionState === -1 || auctionState === 0 || auctionState === 2) {
                                         console.log(403+': error auctionState '+auctionState);
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
                                         var nowTime = Date.parse(new Date());
-                                        //console.log('NOW TIME: '+nowTime);
-                                        //console.log('START TIME: '+startTime);
                                         var timeLeft = timeLap * 1000 - (nowTime - startTime);
-                                        //console.log(timeLeft);
                                         if (timeLeft < 0) {
                                             console.log(403+': auction is closed');
                                             resdata.totaltime = timeLap;
                                             resdata.auctiontype = auctionType;
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
-                                            resdata.totaltime = -1;
                                         }
                                         else {
                                             resdata.timeleft = timeLeft/1000;
                                             resdata.totaltime = timeLap;
                                             resdata.auctiontype = auctionType;
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
-                                            resdata.totaltime = -1;
-                                            resdata.timeleft = -1;
                                         }
                                     }
                                 }

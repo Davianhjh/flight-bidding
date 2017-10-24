@@ -12,7 +12,6 @@ db.on('error', function(error) {
 });
 
 var flightManageSchema = new mongoose.Schema({
-    id: { type:String },
     flight: { type:String },
     origin: { type:String },
     O_code: { type:String },
@@ -28,8 +27,15 @@ var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage
 var auctionFlightManageSchema = new mongoose.Schema({
     flight: { type:String },
     date: { type:String },
+    origin: { type:String },
+    O_code: { type:String },
+    destination: { type:String },
+    D_code: { type:String },
+    departure: { type:String },
+    landing: { type:String },
     auctionID: { type:String },
     auctionType: { type:Number },
+    stageType: { type:Number},
     baseprice: { type:Number },
     auctionState: { type:Number },
     seatnum: { type:Number },
@@ -49,18 +55,20 @@ var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
-var TIMELAP = 60*2;
+var TIMELAP = 60*30;
+var ADVANCED_TIMELAP = 60;
+var LOT_TIMELAP = 60*2;
 
-function getAuctionID(params, type) {
+function getAuctionID(params, type, stage) {
     var flight = params.flight;
     var date = params.date;
     var auctionID = "";
     if(type !== 6) {
-        auctionID = date + flight + "TYPE" + type.toString();
+        auctionID = date + flight + "TYPE" + type.toString() + "S" + stage.toString();
         return auctionID;
     }
     else if(type === 6) {
-        auctionID = date + flight + "LOT" + type.toString();
+        auctionID = date + flight + "LOT" + type.toString() + "S" + stage.toString();
         return auctionID;
     }
 }
@@ -75,6 +83,7 @@ router.post('/', function (req, res, next) {
     var token = req.headers['agi-token'];
     var flights = req.body.flights;
     var type = parseInt(req.body.type);
+    var stage = parseInt(req.body.stage);
     var basePrice = req.body.price;
     var seat = -1;
     var resdata = {
@@ -84,15 +93,19 @@ router.post('/', function (req, res, next) {
     };
     if(type!==1 && type!==2 && type!==3 && type!==4 && type!==5 && type!==6){
         console.log("Error: auctionType param error");
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.write(JSON.stringify(resdata));
+        res.json(resdata);
         res.end();
         return;
     }
     if((typeof(basePrice) === "undefined" && type!==6) || (typeof(basePrice) !== "undefined" && basePrice < 0)){
         console.log("Error: auction's base price param error");
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.write(JSON.stringify(resdata));
+        res.json(resdata);
+        res.end();
+        return;
+    }
+    if(typeof(req.body.stage) === 'undefined' || ((stage!==1)&&(stage!==2)&&(stage!==3))){
+        console.log("Error: auction's stage param error");
+        res.json(resdata);
         res.end();
         return;
     }
@@ -100,21 +113,19 @@ router.post('/', function (req, res, next) {
         seat = parseInt(req.body.seat);
     }
 
-    adminTokenModel.find({Token: token}, function (err, docs) {
+    adminTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
@@ -123,152 +134,112 @@ router.post('/', function (req, res, next) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
                         adminID = decoded.id;
                         if(type === 1 || type === 2 || type === 3 || type === 4) {
-                            async.series({
-                                one: function (callback) {
-                                    flights.forEach(function (item) {
-                                        flightManageModel.find({flight:item.flight, date:item.date}, function (err, docs) {
-                                            if(err){
-                                                console.log(err);
-                                                console.log(500 + ": Server error");
-                                            }
-                                            else if(docs[0].state !== 0){
-                                                callback(null, 1);
-                                            }
-                                            else {
-                                                callback(null, 0);
-                                            }
-                                        });
-                                    });
-                                },
-                                two: function(callback) {
-                                    flights.forEach(function (item) {
-                                        flightManageModel.find({
-                                            flight: item.flight,
-                                            date: item.date
-                                        }, function (err, docs) {
+                            flightManageModel.findOne({flight:flights[0].flight, date:flights[0].date}, function (err, docs) {
+                                if (err) {
+                                    console.log(err);
+                                    console.log(500 + ": Server error");
+                                    res.json(resdata);
+                                    res.end();
+                                }
+                                else {
+                                    if (docs === null) {
+                                        console.log("404: " + "flight " + flights[0].flight + " not found on " + flights[0].date);
+                                        res.json(resdata);
+                                        res.end();
+                                    }
+                                    else if (docs.state === 1) {
+                                        console.log("Error: flight " + flights[0].flight + " have been set");
+                                        resdata.repeat = 1;
+                                        res.json(resdata);
+                                        res.end();
+                                    }
+                                    else {
+                                        flightManageModel.findOneAndUpdate({
+                                            flight: flights[0].flight,
+                                            date: flights[0].date
+                                        }, {$set: {state: 1}}, function (err, doc) {
                                             if (err) {
                                                 console.log(err);
                                                 console.log(500 + ": Server error");
-                                            }
-                                            else if (docs[0].state !== 0) {
-                                                console.log("Error: flight " + item.flight + "'s auction have been set");
+                                                res.json(resdata);
+                                                res.end();
                                             }
                                             else {
-                                                var auctionid = getAuctionID(item, type);
-                                                auctionFlightManageModel.find({auctionID: auctionid}, function (err, lists) {
+                                                console.log("update " + flights[0].flight + "'s flightManage state to 1");
+                                                var auctionid = getAuctionID(flights[0], type, stage);
+                                                if (typeof(basePrice) === "undefined") {
+                                                    basePrice = 0;
+                                                }
+                                                var auctionflight = new auctionFlightManageModel({
+                                                    flight: flights[0].flight,
+                                                    date: flights[0].date,
+                                                    origin: doc.origin,
+                                                    O_code: doc.O_code,
+                                                    destination: doc.destination,
+                                                    D_code: doc.D_code,
+                                                    departure: doc.departure,
+                                                    landing: doc.landing,
+                                                    auctionID: auctionid,
+                                                    auctionType: type,
+                                                    stageType: stage,
+                                                    baseprice: basePrice,
+                                                    auctionState: 0,
+                                                    seatnum: seat,
+                                                    timeLap: TIMELAP
+                                                });
+                                                auctionflight.save(function (err) {
                                                     if (err) {
                                                         console.log(err);
                                                         console.log(500 + ": Server error");
-                                                    }
-                                                    else if (lists.length === 0) {
-                                                        var auctionflight = new auctionFlightManageModel({
-                                                            flight: item.flight,
-                                                            date: item.date,
-                                                            auctionID: auctionid,
-                                                            auctionType: type,
-                                                            baseprice: basePrice,
-                                                            auctionState: 0,
-                                                            seatnum: seat,
-                                                            timeLap: TIMELAP
-                                                        });
-                                                        auctionflight.save(function (err) {
-                                                            if (err) {
-                                                                console.log(err);
-                                                                console.log(500 + ": Server error");
-                                                            }
-                                                            else {
-                                                                console.log("flight " + item.flight + "'s auction setting saved");
-                                                                flightManageModel.update({
-                                                                    flight: item.flight,
-                                                                    date: item.date
-                                                                }, {$set: {state: 1}}, function (err) {
-                                                                    if (err) {
-                                                                        console.log(err);
-                                                                        console.log(500 + ": Server error");
-                                                                    }
-                                                                    else {
-                                                                        console.log("update " + item.flight + "'s flightManage state to 1");
-                                                                    }
-                                                                })
-                                                            }
-                                                        });
+                                                        res.json(resdata);
+                                                        res.end();
                                                     }
                                                     else {
-                                                        auctionFlightManageModel.findOneAndUpdate({auctionID: auctionid, auctionState: 0}, {
-                                                            $set: {
-                                                                auctionType: type,
-                                                                baseprice: basePrice
-                                                            }
-                                                        }, {new: false}, function (err) {
-                                                            if (err) {
-                                                                console.log(err);
-                                                                console.log(500 + ": Server error");
-                                                            }
-                                                            else {
-                                                                console.log("flight " + item.flight + "'s auction setting updated");
-                                                            }
-                                                        });
+                                                        console.log("flight " + flights[0].flight + "'s auction setting saved");
+                                                        resdata.status = 1;
+                                                        res.json(resdata);
+                                                        res.end();
                                                     }
                                                 });
                                             }
                                         });
-                                    });
-                                    callback(null, 1);
-                                }
-                                },function (err, result) {
-                                    if(err){
-                                        console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
-                                    }
-                                    else {
-                                        resdata.repeat = result.one;
-                                        resdata.status = result.two;
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
-                                        res.end();
                                     }
                                 }
-                            );
+                            });
                         }
                         else if(type === 5){
                             if(flights.length !== 1){
                                 console.log("Error: Advanced auction configure params error");
                             }
                             else {
-                                flightManageModel.find({flight:flights[0].flight, date:flights[0].date}, function (err, docs) {
+                                flightManageModel.findOne({flight:flights[0].flight, date:flights[0].date}, function (err, docs) {
                                    if(err){
                                        console.log(err);
                                        console.log(500 + ": Server error");
-                                       res.writeHead(200, {'Content-Type': 'application/json'});
-                                       res.write(JSON.stringify(resdata));
+                                       res.json(resdata);
                                        res.end();
                                    }
                                    else {
-                                       if(docs.length === 0){
+                                       if(docs === null){
                                            console.log("404: " + "flight " + flights[0].flight + " not found on " + flights[0].date);
-                                           res.writeHead(200, {'Content-Type': 'application/json'});
-                                           res.write(JSON.stringify(resdata));
+                                           res.json(resdata);
                                            res.end();
                                        }
                                        else {
-                                           if(docs[0].state === 1){
-                                               console.log("Error: this advanced auction have been set");
+                                           if(docs.state === 1){
+                                               console.log("Error: flight " + flights[0].flight + " have been set");
                                                resdata.repeat = 1;
-                                               res.writeHead(200, {'Content-Type': 'application/json'});
-                                               res.write(JSON.stringify(resdata));
+                                               res.json(resdata);
                                                res.end();
                                            }
                                            else {
-                                               flightManageModel.update({flight:flights[0].flight, date:flights[0].date}, {$set: {state:1}}, function (err) {
+                                               flightManageModel.findOneAndUpdate({flight:flights[0].flight, date:flights[0].date}, {$set: {state:1}}, function (err, doc) {
                                                    if(err){
                                                        console.log(err);
                                                        console.log(500 + ": Server error");
@@ -277,36 +248,43 @@ router.post('/', function (req, res, next) {
                                                        res.end();
                                                    }
                                                    else {
-                                                       var auctionid = getAuctionID(flights[0], type);
+                                                       console.log("update " + flights[0].flight + "'s flightManage state to 1");
+                                                       var auctionid = getAuctionID(flights[0], type, stage);
                                                        var auctionflight = new auctionFlightManageModel({
                                                            flight: flights[0].flight,
                                                            date: flights[0].date,
+                                                           origin: doc.origin,
+                                                           O_code: doc.O_code,
+                                                           destination: doc.destination,
+                                                           D_code: doc.D_code,
+                                                           departure: doc.departure,
+                                                           landing: doc.landing,
                                                            auctionID: auctionid,
                                                            auctionType: type,
+                                                           stageType: stage,
                                                            baseprice: basePrice,
                                                            auctionState: 0,
                                                            seatnum: seat,
-                                                           timeLap: TIMELAP
+                                                           timeLap: ADVANCED_TIMELAP
                                                        });
                                                        auctionflight.save(function (err) {
                                                            if(err){
                                                                console.log(err);
                                                                console.log(500 + ": Server error");
-                                                               res.writeHead(200, {'Content-Type': 'application/json'});
-                                                               res.write(JSON.stringify(resdata));
+                                                               res.json(resdata);
                                                                res.end();
                                                            }
                                                            else {
-                                                               var endDate = dateFormat(docs[0].date, docs[0].departure);
+                                                               var endDate = dateFormat(doc.date, doc.departure);
                                                                var dateLap = Date.parse(new Date(endDate)) - Date.parse(new Date());
                                                                var day = 0;
                                                                if (dateLap % (TIMELAP * 1000) === 0)
                                                                    day = dateLap / (TIMELAP * 1000) - 1;
                                                                else day = Math.floor(dateLap / (TIMELAP * 1000));
+                                                               console.log("the advanced auction is divided into " + day + " days.");
                                                                if (day === 0) {
                                                                    console.log("Error: Advanced auction cannot start within one period's lap");
-                                                                   res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                   res.write(JSON.stringify(resdata));
+                                                                   res.json(resdata);
                                                                    res.end();
                                                                }
                                                                else {
@@ -325,20 +303,16 @@ router.post('/', function (req, res, next) {
                                                                        }
                                                                    };
                                                                    request.post(option, function (err, httpResponse, body) {
-                                                                       console.log(httpResponse.statusCode);
                                                                        if (err || httpResponse.statusCode !== 200) {
                                                                            console.log(err);
                                                                            console.log("Error: http request method get error at statuscode " + httpResponse.statusCode);
-                                                                           res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                           res.write(JSON.stringify(resdata));
+                                                                           res.json(resdata);
                                                                            res.end();
                                                                        }
                                                                        else if (httpResponse.statusCode === 200) {
                                                                            console.log("Advanced auction start success");
-                                                                           console.log(body);
                                                                            resdata.status = 1;
-                                                                           res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                           res.write(JSON.stringify(resdata));
+                                                                           res.json(resdata);
                                                                            res.end();
                                                                        }
                                                                    });
@@ -358,90 +332,77 @@ router.post('/', function (req, res, next) {
                                 console.log("Error: lottery auction configure params error");
                             }
                             else {
-                                flightManageModel.find({
+                                flightManageModel.findOne({
                                     flight: flights[0].flight,
                                     date: flights[0].date
                                 }, function (err, docs) {
                                     if (err) {
                                         console.log(err);
                                         console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        if (docs.length === 0) {
+                                        if (docs === null) {
                                             console.log("404: " + "flight " + flights[0].flight + " not found on " + flights[0].date);
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
-                                            if (docs[0].state === 1) {
-                                                console.log("Error: this lottery auction have been set");
+                                            if (docs.state === 1) {
+                                                console.log("Error: flight " + flights[0].flight + " have been set");
                                                 resdata.repeat = 1;
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                             else {
-                                                flightManageModel.update({
+                                                flightManageModel.findOneAndUpdate({
                                                     flight: flights[0].flight,
                                                     date: flights[0].date
-                                                }, {$set: {state: 1}}, function (err) {
+                                                }, {$set: {state: 1}}, function (err, doc) {
                                                     if (err) {
                                                         console.log(err);
                                                         console.log(500 + ": Server error");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
                                                         res.end();
                                                     }
                                                     else {
-                                                        var auctionid = getAuctionID(flights[0], type);
+                                                        console.log("update " + flights[0].flight + "'s flightManage state to 1");
+                                                        var auctionid = getAuctionID(flights[0], type, stage);
                                                         if(typeof(basePrice) === "undefined"){
                                                             basePrice = 0;
                                                         }
                                                         var auctionflight = new auctionFlightManageModel({
                                                             flight: flights[0].flight,
                                                             date: flights[0].date,
+                                                            origin: doc.origin,
+                                                            O_code: doc.O_code,
+                                                            destination: doc.destination,
+                                                            D_code: doc.D_code,
+                                                            departure: doc.departure,
+                                                            landing: doc.landing,
                                                             auctionID: auctionid,
                                                             auctionType: type,
+                                                            stageType: stage,
                                                             baseprice: basePrice,
                                                             auctionState: 0,
                                                             seatnum: seat,
-                                                            timeLap: TIMELAP
+                                                            timeLap: LOT_TIMELAP
                                                         });
                                                         auctionflight.save(function (err) {
                                                             if (err) {
                                                                 console.log(err);
                                                                 console.log(500 + ": Server error");
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                             else {
                                                                 console.log("flight " + flights[0].flight + "'s lottery setting saved");
-                                                                flightManageModel.update({
-                                                                    flight: flights[0].flight,
-                                                                    date: flights[0].date
-                                                                }, {$set: {state: 1}}, function (err) {
-                                                                    if (err) {
-                                                                        console.log(err);
-                                                                        console.log(500 + ": Server error");
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                    else {
-                                                                        console.log("update " + flights[0].flight + "'s flightManage state to 1");
-                                                                        resdata.status = 1;
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
-                                                                        res.end();
-                                                                    }
-                                                                })
+                                                                resdata.status = 1;
+                                                                res.json(resdata);
+                                                                res.end();
                                                             }
-                                                        })
+                                                        });
                                                     }
                                                 });
                                             }
@@ -452,8 +413,7 @@ router.post('/', function (req, res, next) {
                         }
                         else {
                             console.log("Error: type error");
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.write(JSON.stringify(resdata));
+                            res.json(resdata);
                             res.end();
                         }
                     }

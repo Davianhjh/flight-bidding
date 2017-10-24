@@ -54,7 +54,6 @@ var flightManageModel = db.model("flightMange", flightManageSchema,"flightManage
 var auctionParamSchema = new mongoose.Schema({
     auctionID: { type:String },
     flight : { type:String },
-    attentantUUID: { type:String },
     baseprice: { type:Number },
     timelap: { type:Number },
     seatnum: { type:Number },
@@ -67,12 +66,14 @@ var auctionParamModel = db.model("auctionParam", auctionParamSchema,"auctionPara
 
 var auctionFlightManageSchema = new mongoose.Schema({
     flight: { type:String },
+    date: { type:String },
     auctionID: { type:String },
     auctionType: { type:Number },
+    stageType: { type:Number},
+    baseprice: { type:Number },
     auctionState: { type:Number },
     seatnum: { type:Number },
-    baseprice: { type:Number},
-    date: { type:Number }
+    timeLap: { type: Number }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
 
@@ -103,10 +104,19 @@ var flightInfoSchema = new mongoose.Schema({
     tel: { type:String },
     flight: { type:String },
     seat: { type:String },
-    date: { type:String },
-    userstatus: { type:Number }
+    date: { type:String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
+
+var userStateSchema = new mongoose.Schema({
+    userID: { type:String },
+    flight: { type:String },
+    date: { type:String },
+    auctionID: { type:String },
+    userstatus: { type:Number },
+    timeStamp: { type:Number }
+},{collection:"userState"});
+var userStateModel = db.model("userState", userStateSchema, "userState");
 
 var adminTokenSchema = new mongoose.Schema({
     Token: {type: String}
@@ -120,8 +130,6 @@ var userTokenSchema = new mongoose.Schema({
     deviceToken: {type: String}
 },{collection:"userToken"});
 var userTokenModel = db.model("userToken", userTokenSchema,"userToken");
-
-
 var bodyParser = require('body-parser');
 var jwt = require('jsonwebtoken');
 
@@ -129,7 +137,6 @@ var router = require('express').Router();
 router.use(bodyParser.json({limit: '1mb'}));
 router.use(bodyParser.urlencoded({extended: true}));
 
-var TIMELAP = 60 * 2;
 var AUCTIONTYPE = 5;
 
 router.post('/', function (req, res, next) {
@@ -141,8 +148,7 @@ router.post('/', function (req, res, next) {
 
     var resdata = {
         result: 1,
-        auction: -1,
-        timelap: TIMELAP
+        auction: -1
     };
     var Wangyiyun_Options = {
         templateid: "3061769",
@@ -152,31 +158,28 @@ router.post('/', function (req, res, next) {
         price: ""
     };
 
-    adminTokenModel.find({Token: token}, function (err, docs) {
+    adminTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
-                jwt.verify(token, 'secret', function (error1, decoded) {
+                jwt.verify(token, 'secret', function (error1) {
                     if (error1) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
@@ -184,673 +187,573 @@ router.post('/', function (req, res, next) {
                             if(err){
                                 console.log(err);
                                 console.log(500 + ": Server error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+                                res.json(resdata);
                                 res.end();
                             }
                             else if (typeof(auctionid) === "undefined" || lists === null) {
                                 console.log(403 + ": auctionID invalid params error");
-                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                res.write(JSON.stringify(resdata));
+                                res.json(resdata);
                                 res.end();
-                                return;
                             }
                             else {
-                                var auctionType = lists.auctionType;
                                 var baseprice = lists.baseprice;
                                 var date = lists.date;
-                                //var timelap = lists[0].timelap;
                                 var startTime = Date.parse(new Date());
-                                var auctionData = new auctionParamModel({
-                                    "auctionID": auctionid,
-                                    "flight": flight,
-                                    "attentantUUID": "BACKEND",
-                                    "baseprice": baseprice,
-                                    "timelap": TIMELAP,
-                                    "seatnum": seatnum,
-                                    "startTime": startTime,
-                                    "auctionType": auctionType,
-                                    "auctionState": 1,
-                                    "count": 0
-                                });
-
-                                auctionParamModel.find({auctionID: auctionid}, function (error, docs) {
-                                    if (error) {
-                                        console.log(error);
+                                var timeLap = lists.timeLap;
+                                auctionParamModel.create({
+                                    auctionID: auctionid,
+                                    flight: flight,
+                                    attendantUUID: "BACKEND",
+                                    baseprice: baseprice,
+                                    timelap: timeLap,
+                                    seatnum: seatnum,
+                                    startTime: startTime,
+                                    auctionType: AUCTIONTYPE,
+                                    auctionState: 1,
+                                    count: 0}, function (err) {
+                                    if (err) {
+                                        console.log(err);
                                         console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        if (typeof(auctionid) === "undefined") {
-                                            console.log(403 + ": auctionID invalid params error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
-                                        else if (docs.length === 0) {
-                                            auctionData.save(function (err) {
-                                                if (err) {
+                                        console.log('auctionParam save success');
+                                        resdata.auction = 1;
+                                        resdata.timelap = timeLap;
+                                        res.json(resdata);
+                                        res.end();
+
+                                        var Xinge_Option = {
+                                            device_token: "",
+                                            message_type: 1,
+                                            message: {
+                                                content:'',
+                                                title:''
+                                            },
+                                            action: {
+                                                action_type: 1,
+                                                activity: "com.agiview.flightupdating.client.ResultActivity"
+                                            },
+                                            path: "/v2/push/single_device"
+                                            // TO be added
+                                        };
+                                        var day_count = 0;
+                                        var updateState = function () {
+                                            auctionParamModel.findOne({auctionID: auctionid,flight: flight}, function (err, doc) {
+                                                if(err){
                                                     console.log(err);
                                                     console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
+                                                    clearInterval(IntervalID);
                                                 }
                                                 else {
-                                                    console.log('save success');
-                                                    resdata.auction = 1;
-                                                    resdata.timelap = TIMELAP;
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
+                                                    var seat = doc.seatnum;
+                                                    var candidateID = [];
+                                                    var candidate = [];
 
-                                                    var Xinge_Option = {
-                                                        device_token: "",
-                                                        message_type: 1,
-                                                        message: {
-                                                            content:'',
-                                                            title:''
-                                                        },
-                                                        action: {
-                                                            action_type: 1,
-                                                            activity: "com.agiview.flightupdating.client.ResultActivity"
-                                                        },
-                                                        path: "/v2/push/single_device"
-                                                        // TO be added
-                                                    };
-
-                                                    flightInfoModel.update({flight:flight, date:date}, {userstatus:-1},{multi:true}, function (err) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                        }
-                                                        else {
-                                                            var day_count = 0;
-                                                            console.log("userstatus updated");
-                                                            var updateState = function () {
-                                                                auctionParamModel.find({auctionID: auctionid,flight: flight}, function (err, doc) {
-                                                                    if(err){
+                                                    biddingResultModel.find({auctionID: auctionid})
+                                                        .where("biddingTime").gte(doc.startTime)
+                                                        .where("biddingTime").lt(doc.startTime + timeLap*1000)
+                                                        .sort({biddingPrice:1})
+                                                        .exec(function (err, arr) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                clearInterval(IntervalID);
+                                                            }
+                                                            else if(arr.length === 0) {
+                                                                console.log(404 + ": no passenger take part in the bidding");
+                                                                day_count += 1;
+                                                                startTime = Date.parse(new Date());
+                                                                return auctionParamModel.update({auctionID: auctionid}, {
+                                                                    startTime: startTime,
+                                                                    seatnum: seat
+                                                                }, function (err) {
+                                                                    if (err) {
                                                                         console.log(err);
-                                                                        console.log(500 + ": Server error");
                                                                         clearInterval(IntervalID);
                                                                     }
                                                                     else {
-                                                                        var seat = doc[0].seatnum;
-                                                                        var candidateID = [];
-                                                                        biddingResultModel.find({auctionID: auctionid})
-                                                                        //.where("biddingPrice").gte(BASEPRICE)
-                                                                            .where("biddingTime").gte(doc[0].startTime)
-                                                                            .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
-                                                                            .sort({biddingPrice:-1})
-                                                                            .exec(function (err, arr) {
+                                                                        console.log("update seatnum to " + seat + " on Day " + day_count);
+                                                                    }
+                                                                });
+                                                            }
+                                                            else {
+                                                                var tag = 0;
+                                                                do {
+                                                                    var cell = arr[arr.length - 1].id;
+                                                                    if (!candidateID.includes(cell)) {
+                                                                        candidateID.push(arr[arr.length - 1].id);
+                                                                        candidate.push(arr[arr.length - 1]);
+                                                                        if (arr[arr.length - 1].biddingPrice >= baseprice)
+                                                                            tag++;
+                                                                    }
+                                                                    arr.pop();
+                                                                } while (arr.length !== 0);
+
+                                                                console.log("today's total number of bidding is " + candidateID.length);
+                                                                console.log(candidateID);
+                                                                console.log("today's above baseprice bidding is " + tag);
+
+                                                                if(tag >= seat){                              // the number of candidates is above the number of seats
+                                                                    console.log("No auction seats left");
+                                                                    candidate.forEach(function (item, index) {
+                                                                        if(index < seat) {                    // filter the winner (all the seats on bidding are sold)
+                                                                            flightInfoModel.findOne({
+                                                                                id: item.id,
+                                                                                flight: flight,
+                                                                                date: date
+                                                                            }, function (err, lists) {
                                                                                 if (err) {
                                                                                     console.log(err);
                                                                                     console.log(500 + ": Server error");
                                                                                     clearInterval(IntervalID);
                                                                                 }
                                                                                 else {
-                                                                                    console.log("today's total number of bidding is " + arr.length);
-                                                                                    for(var m=0;m<arr.length;m++){
-                                                                                        candidateID.push(arr[m].id);
+                                                                                    var now_time = Date.parse(new Date());
+                                                                                    userStateModel.create({
+                                                                                        userID: item.id,
+                                                                                        flight: flight,
+                                                                                        date: date,
+                                                                                        auctionID: auctionid,
+                                                                                        userstatus: 2,
+                                                                                        timeStamp: now_time
+                                                                                    }, function (err) {
+                                                                                        if(err){
+                                                                                            console.log(err);
+                                                                                            console.log(500 + ": Server error");
+                                                                                            clearInterval(IntervalID);
+                                                                                        }
+                                                                                        else {
+                                                                                            console.log("userstatus updated succeeded");
+                                                                                        }
+                                                                                    });
+                                                                                    advancedAuctionResultModel.create({
+                                                                                        auctionID: auctionid,
+                                                                                        flight: flight,
+                                                                                        name: lists.name,
+                                                                                        id: item.id,
+                                                                                        tel: lists.tel,
+                                                                                        seat: lists.seat,
+                                                                                        price: item.biddingPrice.toString(),
+                                                                                        paid: false
+                                                                                    }, function (err) {
+                                                                                        if(err) {
+                                                                                            console.log(err);
+                                                                                            console.log(500 + ": Server error");
+                                                                                            clearInterval(IntervalID);
+                                                                                        }
+                                                                                        else {
+                                                                                            console.log("advanced auction bidding result saved");
+                                                                                        }
+                                                                                    });
+                                                                                    // sending & texting winners
+                                                                                    Wangyiyun_Options.mobiles = lists.tel;
+                                                                                    Wangyiyun_Options.flight = flight;
+                                                                                    Wangyiyun_Options.name = lists.name;
+                                                                                    Wangyiyun_Options.price = item.price;
+                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                        if(err){
+                                                                                            console.log('ERROR'+err);
+                                                                                        }
+                                                                                        console.log(result);
+                                                                                    });
+                                                                                    userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                        if(err){
+                                                                                            console.log("Error: " + err);
+                                                                                        }
+                                                                                        else {
+                                                                                            Xinge_Option.device_token = cells.deviceToken;
+                                                                                            Xinge_Option.message.title = "Flight updating service message";
+                                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists.name + "您好，您所竞拍的" + flight + "号航班，以" + item.biddingPrice + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                            xinge.send(Xinge_Option, function (err, result) {
+                                                                                                if(err){
+                                                                                                    console.log('ERROR: '+err);
+                                                                                                }
+                                                                                                console.log(result);
+                                                                                            });
+                                                                                        }
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                        else {                                       // the loser left
+                                                                            now_time = Date.parse(new Date());
+                                                                            userStateModel.create({
+                                                                                userID: item.id,
+                                                                                flight: flight,
+                                                                                date: date,
+                                                                                auctionID: auctionid,
+                                                                                userstatus: 1,
+                                                                                timeStamp: now_time
+                                                                            }, function (err) {
+                                                                                if(err) {
+                                                                                    console.log(err);
+                                                                                    console.log(500 + ": Server error");
+                                                                                    clearInterval(IntervalID);
+                                                                                }
+                                                                                else {
+                                                                                    console.log("advanced auction bidding result saved");
+                                                                                }
+                                                                            });
+                                                                            // sending losers
+                                                                            userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                if(err){
+                                                                                    console.log("Error: " + err);
+                                                                                }
+                                                                                else {
+                                                                                    Xinge_Option.device_token = cells.deviceToken;
+                                                                                    Xinge_Option.message.title = "Flight updating service message";
+                                                                                    Xinge_Option.message.content = "尊敬的乘客" + lists.name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                    xinge.send(Xinge_Option, function (err, result) {
+                                                                                        if(err){
+                                                                                            console.log('ERROR: '+err);
+                                                                                        }
+                                                                                        console.log(result);
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                    console.log("finish sending today's all candidates");
+                                                                    // change auctionState and close the auction
+                                                                    auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                                        if (err) {
+                                                                            console.log(err);
+                                                                            console.log(500 + ": Server error");
+                                                                            clearInterval(IntervalID);
+                                                                        }
+                                                                        else {
+                                                                            auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                                if(error) {
+                                                                                    console.log(error);
+                                                                                    console.log(500 + ": Server error");
+                                                                                    clearInterval(IntervalID);
+                                                                                }
+                                                                                else {
+                                                                                    console.log('update auctionState to 2');
+                                                                                    flightManageModel.update({flight:flight, date:date}, {state:0}, function (error) {
+                                                                                        if(error) {
+                                                                                            console.log(error);
+                                                                                            console.log(500 + ": Server error");
+                                                                                            clearInterval(IntervalID);
+                                                                                        }
+                                                                                        else {
+                                                                                            console.log("update flight " + flight + "'s state to 0");
+                                                                                            candidateID = [];
+                                                                                            candidate = [];
+                                                                                            clearInterval(IntervalID);
+                                                                                        }
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                }
+                                                                else {                                              //  the number of seats is above the number of candidates
+                                                                    var now_seat = seat - tag;                      //  after this period, the number of seats left
+                                                                    var now_time;
+                                                                    day_count += 1;
+                                                                    if(day_count >= daynum){                        //  judge whether is the last period (IS the last period)
+                                                                        console.log("no auction days left");
+                                                                        candidate.forEach(function (item, index) {
+                                                                            if (index < tag) {                     //  filter the winner (all the candidates above basePrice tag maybe 0)
+                                                                                flightInfoModel.findOne({
+                                                                                    id: item.id,
+                                                                                    flight: flight,
+                                                                                    date: date
+                                                                                }, function (err, lists) {
+                                                                                    if (err) {
+                                                                                        console.log(err);
+                                                                                        console.log(500 + ": Server error");
+                                                                                        clearInterval(IntervalID);
                                                                                     }
-                                                                                    console.log("the candidates: " + candidateID);
-
-                                                                                    biddingResultModel.find({auctionID: auctionid})
-                                                                                        .where("biddingPrice").gte(baseprice)
-                                                                                        .where("biddingTime").gte(doc[0].startTime)
-                                                                                        .where("biddingTime").lt(doc[0].startTime + TIMELAP*1000)
-                                                                                        .sort({biddingPrice:-1})
-                                                                                        .exec(function (err, docs) {
-                                                                                            if (err) {
+                                                                                    else {
+                                                                                        now_time = Date.parse(new Date());
+                                                                                        userStateModel.create({
+                                                                                            userID: item.id,
+                                                                                            flight: flight,
+                                                                                            date: date,
+                                                                                            auctionID: auctionid,
+                                                                                            userstatus: 2,
+                                                                                            timeStamp: now_time
+                                                                                        }, function (err) {
+                                                                                            if(err) {
                                                                                                 console.log(err);
                                                                                                 console.log(500 + ": Server error");
                                                                                                 clearInterval(IntervalID);
                                                                                             }
-                                                                                            else if (docs.length !==0 ) {
-                                                                                                console.log("today's above baseprice bidding is " + docs.length);
-                                                                                                var candidate = {};
-                                                                                                var passenger = [];
-                                                                                                var id_Array = [];
-                                                                                                var failure = [];
-                                                                                                if(docs.length >= seat){
-                                                                                                    console.log("No auction seats left");
-                                                                                                    for (var i = 0; i < seat; i++) {
-                                                                                                        id_Array.push(docs[i].id);
-                                                                                                    }
-                                                                                                    flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
-                                                                                                        if (err) {
-                                                                                                            console.log(err);
-                                                                                                            console.log(500 + ": Server error");
-                                                                                                        }
-                                                                                                        else {
-                                                                                                            for (var i = 0; i < seat; i++) {
-                                                                                                                for (var j = 0; j < lists.length; j++) {
-                                                                                                                    if (docs[i].id === lists[j].id) {
-                                                                                                                        candidate = {
-                                                                                                                            auctionID: auctionid,
-                                                                                                                            flight: docs[i].flight,
-                                                                                                                            name: lists[j].name,
-                                                                                                                            id: lists[j].id,
-                                                                                                                            tel: lists[j].tel,
-                                                                                                                            seat: lists[j].seat,
-                                                                                                                            price: docs[i].biddingPrice.toString(),
-                                                                                                                            paid: false
-                                                                                                                        };
-                                                                                                                        passenger.push(candidate);
-                                                                                                                        break;
-                                                                                                                    }
-                                                                                                                }
-                                                                                                            }
-                                                                                                            // texting APIs (passenger)
-                                                                                                            passenger.forEach(function (doc, index) {
-                                                                                                                Wangyiyun_Options.mobiles = doc.tel;
-                                                                                                                Wangyiyun_Options.flight = doc.flight;
-                                                                                                                Wangyiyun_Options.name = doc.name;
-                                                                                                                Wangyiyun_Options.price = doc.price;
-                                                                                                                wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                                                    if(err){
-                                                                                                                        console.log('ERROR'+err);
-                                                                                                                    }
-                                                                                                                    console.log(result);
-                                                                                                                });
-                                                                                                            });
-                                                                                                            // APP sending APIs (passenger)
-                                                                                                            passenger.forEach(function (doc, index) {
-                                                                                                                userTokenModel.find({id:doc.id}, function (err, lists) {
-                                                                                                                    if(err){
-                                                                                                                        console.log("Error: " + err);
-                                                                                                                    }
-                                                                                                                    else {
-                                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                        Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
-                                                                                                                        xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                            if(err){
-                                                                                                                                console.log('ERROR: '+err);
-                                                                                                                            }
-                                                                                                                            console.log(result);
-                                                                                                                        });
-                                                                                                                    }
-                                                                                                                });
-                                                                                                            });
-                                                                                                            // APP sending APIs (failure)
-                                                                                                            failure = candidateID.slice(seat);
-                                                                                                            failure.forEach(function (doc, index) {
-                                                                                                                userTokenModel.find({id:doc}, function (err, lists) {
-                                                                                                                    if(err){
-                                                                                                                        console.log("Error: " + err);
-                                                                                                                    }
-                                                                                                                    else {
-                                                                                                                        Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                        Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                        Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                        xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                            if(err){
-                                                                                                                                console.log('ERROR: '+err);
-                                                                                                                            }
-                                                                                                                            console.log(result);
-                                                                                                                        });
-                                                                                                                    }
-                                                                                                                });
-                                                                                                            });
-                                                                                                            console.log(failure);
-                                                                                                            console.log("finish sending today's all candidates");
-
-                                                                                                            advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                                                if(err){
-                                                                                                                    console.log(err);
-                                                                                                                    console.log(500 + ": Server error");
-                                                                                                                }
-                                                                                                                else {
-                                                                                                                    console.log("advanced auction bidding result saved");
-                                                                                                                    //console.log(array);
-                                                                                                                    auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                                                                                        if (err)
-                                                                                                                            console.log(err);
-                                                                                                                        else {
-                                                                                                                            auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
-                                                                                                                                if(error)
-                                                                                                                                    console.log(error);
-                                                                                                                                else {
-                                                                                                                                    console.log('update auctionState to 2');
-                                                                                                                                    flightManageModel.update({state:0}, function (error) {
-                                                                                                                                        if(error)
-                                                                                                                                            console.log(error);
-                                                                                                                                        else {
-                                                                                                                                            console.log("update flight " + flight + "'s state to 2");
-                                                                                                                                            var winner = candidateID.slice(0,seat);
-                                                                                                                                            flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
-                                                                                                                                                if (err) {
-                                                                                                                                                    console.log(err);
-                                                                                                                                                    console.log(500 + ": Server error");
-                                                                                                                                                }
-                                                                                                                                                else {
-                                                                                                                                                    flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:1}, {multi:true}, function (err, docs) {
-                                                                                                                                                        if (err) {
-                                                                                                                                                            console.log(err);
-                                                                                                                                                            console.log(500 + ": Server error");
-                                                                                                                                                        }
-                                                                                                                                                        else {
-                                                                                                                                                            clearInterval(IntervalID);
-                                                                                                                                                        }
-                                                                                                                                                    });
-                                                                                                                                                }
-                                                                                                                                            });
-                                                                                                                                        }
-                                                                                                                                    });
-                                                                                                                                }
-                                                                                                                            });
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                }
-                                                                                                            });
-                                                                                                        }
-                                                                                                    });
-                                                                                                }
-                                                                                                else {
-                                                                                                    var now_seat = seat - docs.length;
-                                                                                                    day_count += 1;
-                                                                                                    for (var j = 0; j < docs.length; j++) {
-                                                                                                        id_Array.push(docs[j].id);
-                                                                                                    }
-                                                                                                    if(day_count >= daynum) {
-                                                                                                        console.log("no auction days left");
-                                                                                                        flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
-                                                                                                            if (err) {
-                                                                                                                console.log(err);
-                                                                                                                console.log(500 + ": Server error");
-                                                                                                            }
-                                                                                                            else {
-                                                                                                                for (var i = 0; i < docs.length; i++) {
-                                                                                                                    for (var j = 0; j < lists.length; j++) {
-                                                                                                                        if (docs[i].id === lists[j].id) {
-                                                                                                                            candidate = {
-                                                                                                                                auctionID: auctionid,
-                                                                                                                                flight: docs[i].flight,
-                                                                                                                                name: lists[j].name,
-                                                                                                                                id: lists[j].id,
-                                                                                                                                tel: lists[j].tel,
-                                                                                                                                seat: lists[j].seat,
-                                                                                                                                price: docs[i].biddingPrice.toString(),
-                                                                                                                                paid: false
-                                                                                                                            };
-                                                                                                                            passenger.push(candidate);
-                                                                                                                            break;
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                }
-                                                                                                                // texting APIs (passenger)
-                                                                                                                passenger.forEach(function (doc, index) {
-                                                                                                                    Wangyiyun_Options.mobiles = doc.tel;
-                                                                                                                    Wangyiyun_Options.flight = doc.flight;
-                                                                                                                    Wangyiyun_Options.name = doc.name;
-                                                                                                                    Wangyiyun_Options.price = doc.price;
-                                                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                                                        if(err){
-                                                                                                                            console.log('ERROR'+err);
-                                                                                                                        }
-                                                                                                                        console.log(result);
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                console.log("finish texting all winners");
-                                                                                                                // APP sending APIs (passenger)
-                                                                                                                passenger.forEach(function (doc, index) {
-                                                                                                                    userTokenModel.find({id:doc.id}, function (err, lists) {
-                                                                                                                        if(err){
-                                                                                                                            console.log("Error: " + err);
-                                                                                                                        }
-                                                                                                                        else {
-                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
-                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                                if(err){
-                                                                                                                                    console.log('ERROR: '+err);
-                                                                                                                                }
-                                                                                                                                console.log(result);
-                                                                                                                            });
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                // APP sending APIs (failure)
-                                                                                                                failure = candidateID.slice(docs.length);
-                                                                                                                failure.forEach(function (doc, index) {
-                                                                                                                    userTokenModel.find({id:doc}, function (err, lists) {
-                                                                                                                        if(err){
-                                                                                                                            console.log("Error: " + err);
-                                                                                                                        }
-                                                                                                                        else {
-                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                                if(err){
-                                                                                                                                    console.log('ERROR: '+err);
-                                                                                                                                }
-                                                                                                                                console.log(result);
-                                                                                                                            });
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                console.log(failure);
-                                                                                                                console.log("finish sending today's all candidates");
-
-                                                                                                                advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                                                    if (err) {
-                                                                                                                        console.log(err);
-                                                                                                                        console.log(500 + ": Server error");
-                                                                                                                    }
-                                                                                                                    else {
-                                                                                                                        console.log("advanced auction bidding result saved");
-                                                                                                                        //console.log(array);
-                                                                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                                                                                            if (err)
-                                                                                                                                console.log(err);
-                                                                                                                            else {
-                                                                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
-                                                                                                                                    if(error)
-                                                                                                                                        console.log(error);
-                                                                                                                                    else {
-                                                                                                                                        console.log('update auctionState to 2');
-                                                                                                                                        flightManageModel.update({state:0}, function (error) {
-                                                                                                                                            if(error)
-                                                                                                                                                console.log(error);
-                                                                                                                                            else {
-                                                                                                                                                console.log("update flight " + flight + "'s state to 2");
-                                                                                                                                                var winner = candidateID.slice(0,docs.length);
-                                                                                                                                                flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err, docs) {
-                                                                                                                                                    if (err) {
-                                                                                                                                                        console.log(err);
-                                                                                                                                                        console.log(500 + ": Server error");
-                                                                                                                                                    }
-                                                                                                                                                    else {
-                                                                                                                                                        flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:1}, {multi:true}, function (err, docs) {
-                                                                                                                                                            if (err) {
-                                                                                                                                                                console.log(err);
-                                                                                                                                                                console.log(500 + ": Server error");
-                                                                                                                                                            }
-                                                                                                                                                            else {
-                                                                                                                                                                res.write(JSON.stringify(resdata));
-                                                                                                                                                                res.end();
-
-                                                                                                                                                                clearInterval(IntervalID);
-                                                                                                                                                            }
-                                                                                                                                                        });
-                                                                                                                                                    }
-                                                                                                                                                });
-                                                                                                                                            }
-                                                                                                                                        });
-                                                                                                                                    }
-                                                                                                                                });
-                                                                                                                            }
-                                                                                                                        });
-                                                                                                                    }
-                                                                                                                });
-                                                                                                            }
-                                                                                                        });
-                                                                                                    }
-                                                                                                    else {
-                                                                                                        console.log("auction is still proceeding");
-                                                                                                        flightInfoModel.find({id: {$in: id_Array}}, function (err, lists) {
-                                                                                                            if (err) {
-                                                                                                                console.log(err);
-                                                                                                                console.log(500 + ": Server error");
-                                                                                                                res.write(JSON.stringify(resdata));
-                                                                                                                res.end();
-                                                                                                            }
-                                                                                                            else {
-                                                                                                                for (var i = 0; i < docs.length; i++) {
-                                                                                                                    for (var j = 0; j < lists.length; j++) {
-                                                                                                                        if (docs[i].id === lists[j].id) {
-                                                                                                                            candidate = {
-                                                                                                                                auctionID: auctionid,
-                                                                                                                                flight: docs[i].flight,
-                                                                                                                                name: lists[j].name,
-                                                                                                                                id: lists[j].id,
-                                                                                                                                tel: lists[j].tel,
-                                                                                                                                seat: lists[j].seat,
-                                                                                                                                price: docs[i].biddingPrice.toString(),
-                                                                                                                                paid: false
-                                                                                                                            };
-                                                                                                                            passenger.push(candidate);
-                                                                                                                            break;
-                                                                                                                        }
-                                                                                                                    }
-                                                                                                                }
-                                                                                                                // Texting APIs (passenger)
-                                                                                                                passenger.forEach(function (doc, index) {
-                                                                                                                    Wangyiyun_Options.mobiles = doc.tel;
-                                                                                                                    Wangyiyun_Options.flight = doc.flight;
-                                                                                                                    Wangyiyun_Options.name = doc.name;
-                                                                                                                    Wangyiyun_Options.price = doc.price;
-                                                                                                                    wangyi.text(Wangyiyun_Options,function(err,result){
-                                                                                                                        if(err){
-                                                                                                                            console.log('ERROR'+err);
-                                                                                                                        }
-                                                                                                                        console.log(result);
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                console.log("finish texting " + passenger.length + " winners on Day " + day_count);
-                                                                                                                // APP sending APIs (passenger)
-                                                                                                                passenger.forEach(function (doc, index) {
-                                                                                                                    userTokenModel.find({id:doc.id}, function (err, lists) {
-                                                                                                                        if(err){
-                                                                                                                            console.log("Error: " + err);
-                                                                                                                        }
-                                                                                                                        else {
-                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + doc.name + "您好，您所竞拍的" + doc.flight + "号航班，以" + doc.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
-                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                                if(err){
-                                                                                                                                    console.log('ERROR: '+err);
-                                                                                                                                }
-                                                                                                                                console.log(result);
-                                                                                                                            });
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                // APP sending APIs
-                                                                                                                failure = candidateID.slice(docs.length);
-                                                                                                                failure.forEach(function (doc, index) {
-                                                                                                                    userTokenModel.find({id:doc}, function (err, lists) {
-                                                                                                                        if(err){
-                                                                                                                            console.log("Error: " + err);
-                                                                                                                        }
-                                                                                                                        else {
-                                                                                                                            Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                            Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                            Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                            xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                                if(err){
-                                                                                                                                    console.log('ERROR: '+err);
-                                                                                                                                }
-                                                                                                                                console.log(result);
-                                                                                                                            });
-                                                                                                                        }
-                                                                                                                    });
-                                                                                                                });
-                                                                                                                console.log(failure);
-                                                                                                                console.log("finish sending today's all candidates");
-
-                                                                                                                advancedAuctionResultModel.collection.insert(passenger, function (err, array) {
-                                                                                                                    if (err) {
-                                                                                                                        console.log(err);
-                                                                                                                        console.log(500 + ": Server error");
-                                                                                                                        res.write(JSON.stringify(resdata));
-                                                                                                                        res.end();
-                                                                                                                    }
-                                                                                                                    else {
-                                                                                                                        console.log("advanced auction bidding result saved");
-                                                                                                                        //console.log(array);
-                                                                                                                        var startTime = Date.parse(new Date());
-                                                                                                                        var winner = candidateID.slice(0,docs.length);
-                                                                                                                        return auctionParamModel.update({auctionID: auctionid}, {startTime:startTime, seatnum: now_seat}, function (err) {
-                                                                                                                            if (err)
-                                                                                                                                console.log(err);
-                                                                                                                            else {
-                                                                                                                                console.log("update seatnum to " + now_seat + " on Day " + day_count);
-                                                                                                                                flightInfoModel.update({flight:flight,date:date,id:{$in:winner}}, {userstatus:2}, {multi:true}, function (err) {
-                                                                                                                                    if (err) {
-                                                                                                                                        console.log(err);
-                                                                                                                                        console.log(500 + ": Server error");
-                                                                                                                                    }
-                                                                                                                                    else {
-                                                                                                                                        flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
-                                                                                                                                            if (err) {
-                                                                                                                                                console.log(err);
-                                                                                                                                                console.log(500 + ": Server error");
-                                                                                                                                            }
-                                                                                                                                            else {
-                                                                                                                                                console.log("userstatus updated");
-                                                                                                                                            }
-                                                                                                                                        });
-                                                                                                                                    }
-                                                                                                                                });
-                                                                                                                            }
-                                                                                                                        });
-                                                                                                                    }
-                                                                                                                });
-                                                                                                            }
-                                                                                                        });
-                                                                                                    }
-                                                                                                }
-                                                                                            }
                                                                                             else {
-                                                                                                console.log("today's above baseprice bidding is " + docs.length);
-                                                                                                day_count += 1;
-
-                                                                                                if(day_count >= daynum) {
-                                                                                                    console.log("no auction days left");
-                                                                                                    if(arr.length !== 0) {
-                                                                                                        failure = candidateID.slice(0);
-                                                                                                        console.log(failure);
-                                                                                                        // APP sending APIs
-                                                                                                        failure.forEach(function (doc, index) {
-                                                                                                            userTokenModel.find({id: doc}, function (err, lists) {
-                                                                                                                if (err) {
-                                                                                                                    console.log("Error: " + err);
-                                                                                                                }
-                                                                                                                else {
-                                                                                                                    Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                    Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                    Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                    xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                        if (err) {
-                                                                                                                            console.log('ERROR: ' + err);
-                                                                                                                        }
-                                                                                                                        console.log(result);
-                                                                                                                    });
-                                                                                                                }
-                                                                                                            });
-                                                                                                        });
-                                                                                                        console.log("finish sending today's all candidates");
-
-                                                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
-                                                                                                            if (err)
-                                                                                                                console.log(err);
-                                                                                                            else {
-                                                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState: 2}, function (error) {
-                                                                                                                    if (error)
-                                                                                                                        console.log(error);
-                                                                                                                    else {
-                                                                                                                        console.log('update auctionState to 2');
-                                                                                                                        flightManageModel.update({state: 0}, function (error) {
-                                                                                                                            if (error)
-                                                                                                                                console.log(error);
-                                                                                                                            else {
-                                                                                                                                console.log("update flight " + flight + "'s state to 2");
-                                                                                                                                flightInfoModel.update({flight:flight,date:date,id: {$in: failure}}, {userstatus: 1}, {multi: true}, function (err, docs) {
-                                                                                                                                    if (err) {
-                                                                                                                                        console.log(err);
-                                                                                                                                        console.log(500 + ": Server error");
-                                                                                                                                        res.write(JSON.stringify(resdata));
-                                                                                                                                        res.end();
-                                                                                                                                    }
-                                                                                                                                    else {
-                                                                                                                                        res.write(JSON.stringify(resdata));
-                                                                                                                                        res.end();
-
-                                                                                                                                        clearInterval(IntervalID);
-                                                                                                                                    }
-                                                                                                                                });
-                                                                                                                            }
-                                                                                                                        });
-                                                                                                                    }
-                                                                                                                });
-                                                                                                            }
-                                                                                                        });
-                                                                                                    }
-                                                                                                }
-                                                                                                else {
-                                                                                                    console.log("auction is still proceeding");
-                                                                                                    if(arr.length !== 0) {
-                                                                                                        failure = candidateID.slice(0);
-                                                                                                        console.log(failure);
-                                                                                                        // APP sending APIs
-                                                                                                        failure.forEach(function (doc, index) {
-                                                                                                            userTokenModel.find({id:doc}, function (err, lists) {
-                                                                                                                if(err){
-                                                                                                                    console.log("Error: " + err);
-                                                                                                                }
-                                                                                                                else {
-                                                                                                                    Xinge_Option.device_token = lists[0].deviceToken;
-                                                                                                                    Xinge_Option.message.title = "Flight updating service message";
-                                                                                                                    Xinge_Option.message.content = "尊敬的乘客" + lists[0].name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
-                                                                                                                    xinge.send(Xinge_Option, function (err, result) {
-                                                                                                                        if(err){
-                                                                                                                            console.log('ERROR: '+err);
-                                                                                                                        }
-                                                                                                                        console.log(result);
-                                                                                                                    });
-                                                                                                                }
-                                                                                                            });
-                                                                                                        });
-                                                                                                        console.log("finish sending today's all candidates");
-                                                                                                    }
-
-                                                                                                    var startTime = Date.parse(new Date());
-                                                                                                    return auctionParamModel.update({auctionID: auctionid}, {
-                                                                                                        startTime: startTime,
-                                                                                                        seatnum: seat
-                                                                                                    }, function (err) {
-                                                                                                        if (err)
-                                                                                                            console.log(err);
-                                                                                                        else {
-                                                                                                            console.log("update seatnum to " + seat + " on Day " + day_count);
-                                                                                                            flightInfoModel.update({flight:flight,date:date,id:{$in:failure}}, {userstatus:0}, {multi:true}, function (err) {
-                                                                                                                if (err) {
-                                                                                                                    console.log(err);
-                                                                                                                    console.log(500 + ": Server error");
-                                                                                                                }
-                                                                                                                else {
-                                                                                                                    console.log("userstatus updated");
-                                                                                                                }
-                                                                                                            });
-                                                                                                        }
-                                                                                                    });
-                                                                                                }
+                                                                                                console.log("advanced auction bidding result saved");
                                                                                             }
                                                                                         });
-                                                                                }
-                                                                            });
+                                                                                        advancedAuctionResultModel.create({
+                                                                                            auctionID: auctionid,
+                                                                                            flight: flight,
+                                                                                            name: lists.name,
+                                                                                            id: item.id,
+                                                                                            tel: lists.tel,
+                                                                                            seat: lists.seat,
+                                                                                            price: item.biddingPrice.toString(),
+                                                                                            paid: false
+                                                                                        }, function (err) {
+                                                                                            if(err) {
+                                                                                                console.log(err);
+                                                                                                console.log(500 + ": Server error");
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                            else {
+                                                                                                console.log("advanced auction bidding result saved");
+                                                                                            }
+                                                                                        });
+                                                                                        // Sending & testing winners
+                                                                                        Wangyiyun_Options.mobiles = lists.tel;
+                                                                                        Wangyiyun_Options.flight = flight;
+                                                                                        Wangyiyun_Options.name = lists.name;
+                                                                                        Wangyiyun_Options.price = item.price;
+                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                            if(err){
+                                                                                                console.log('ERROR'+err);
+                                                                                            }
+                                                                                            console.log(result);
+                                                                                        });
+                                                                                        userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                            if(err){
+                                                                                                console.log("Error: " + err);
+                                                                                            }
+                                                                                            else {
+                                                                                                Xinge_Option.device_token = cells.deviceToken;
+                                                                                                Xinge_Option.message.title = "Flight updating service message";
+                                                                                                Xinge_Option.message.content = "尊敬的乘客" + cells.name + "您好，您所竞拍的" + flight + "号航班，以" + item.price + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                xinge.send(Xinge_Option, function (err, result) {
+                                                                                                    if(err){
+                                                                                                        console.log('ERROR: '+err);
+                                                                                                    }
+                                                                                                    console.log(result);
+                                                                                                });
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                            else {                                  //  the loser left
+                                                                                now_time = Date.parse(new Date());
+                                                                                userStateModel.create({
+                                                                                    userID: item.id,
+                                                                                    flight: flight,
+                                                                                    date: date,
+                                                                                    auctionID: auctionid,
+                                                                                    userstatus: 1,
+                                                                                    timeStamp: now_time
+                                                                                }, function (err) {
+                                                                                    if(err) {
+                                                                                        console.log(err);
+                                                                                        console.log(500 + ": Server error");
+                                                                                        clearInterval(IntervalID);
+                                                                                    }
+                                                                                    else {
+                                                                                        console.log("advanced auction bidding result saved");
+                                                                                    }
+                                                                                });
+                                                                                // sending losers
+                                                                                userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                    if(err){
+                                                                                        console.log("Error: " + err);
+                                                                                    }
+                                                                                    else {
+                                                                                        Xinge_Option.device_token = cells.deviceToken;
+                                                                                        Xinge_Option.message.title = "Flight updating service message";
+                                                                                        Xinge_Option.message.content = "尊敬的乘客" + cells.name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                        xinge.send(Xinge_Option, function (err, result) {
+                                                                                            if(err){
+                                                                                                console.log('ERROR: '+err);
+                                                                                            }
+                                                                                            console.log(result);
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                        console.log("finish sending today's all candidates");
+                                                                        // change auctionState and close the auction
+                                                                        auctionParamModel.update({auctionID: auctionid}, {auctionState: 2}, function (err) {
+                                                                            if (err) {
+                                                                                console.log(err);
+                                                                                console.log(500 + ": Server error");
+                                                                                clearInterval(IntervalID);
+                                                                            }
+                                                                            else {
+                                                                                auctionFlightManageModel.update({auctionID: auctionid}, {auctionState:2}, function (error) {
+                                                                                    if(error) {
+                                                                                        console.log(error);
+                                                                                        console.log(500 + ": Server error");
+                                                                                        clearInterval(IntervalID);
+                                                                                    }
+                                                                                    else {
+                                                                                        console.log('update auctionState to 2');
+                                                                                        flightManageModel.update({flight:flight, date:date}, {state:0}, function (error) {
+                                                                                            if(error) {
+                                                                                                console.log(error);
+                                                                                                console.log(500 + ": Server error");
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                            else {
+                                                                                                console.log("update flight " + flight + "'s state to 0");
+                                                                                                candidateID = [];
+                                                                                                candidate = [];
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
                                                                     }
-                                                                });
-                                                            };
-                                                            var IntervalID = setInterval(updateState, TIMELAP * 1000);
-                                                        }
-                                                    });
+                                                                    else {
+                                                                        console.log("auction is still proceeding"); //  NOT the last period (auction is still going on)
+                                                                        candidate.forEach(function (item, index) {
+                                                                            if(index < tag) {                       //  filter the winner (all the candidates above basePrice tag maybe 0)
+                                                                                flightInfoModel.findOne({
+                                                                                    id: item.id,
+                                                                                    flight: flight,
+                                                                                    date: date
+                                                                                }, function (err, lists) {
+                                                                                    if (err) {
+                                                                                        console.log(err);
+                                                                                        console.log(500 + ": Server error");
+                                                                                        clearInterval(IntervalID);
+                                                                                    }
+                                                                                    else {
+                                                                                        now_time = Date.parse(new Date());
+                                                                                        userStateModel.create({
+                                                                                            userID: item.id,
+                                                                                            flight: flight,
+                                                                                            date: date,
+                                                                                            auctionID: auctionid,
+                                                                                            userstatus: 2,
+                                                                                            timeStamp: now_time
+                                                                                        },function (err) {
+                                                                                            if(err) {
+                                                                                                console.log(err);
+                                                                                                console.log(500 + ": Server error");
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                            else {
+                                                                                                console.log("advanced auction bidding result saved");
+                                                                                            }
+                                                                                        });
+                                                                                        advancedAuctionResultModel.create({
+                                                                                            auctionID: auctionid,
+                                                                                            flight: flight,
+                                                                                            name: lists.name,
+                                                                                            id: item.id,
+                                                                                            tel: lists.tel,
+                                                                                            seat: lists.seat,
+                                                                                            price: item.biddingPrice.toString(),
+                                                                                            paid: false
+                                                                                        }, function (err) {
+                                                                                            if(err) {
+                                                                                                console.log(err);
+                                                                                                console.log(500 + ": Server error");
+                                                                                                clearInterval(IntervalID);
+                                                                                            }
+                                                                                            else {
+                                                                                                console.log("advanced auction bidding result saved");
+                                                                                            }
+                                                                                        });
+                                                                                        // sending & texting winners
+                                                                                        Wangyiyun_Options.mobiles = lists.tel;
+                                                                                        Wangyiyun_Options.flight = flight;
+                                                                                        Wangyiyun_Options.name = lists.name;
+                                                                                        Wangyiyun_Options.price = item.price;
+                                                                                        wangyi.text(Wangyiyun_Options,function(err,result){
+                                                                                            if(err){
+                                                                                                console.log('ERROR'+err);
+                                                                                            }
+                                                                                            console.log(result);
+                                                                                        });
+                                                                                        userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                            if(err){
+                                                                                                console.log("Error: " + err);
+                                                                                            }
+                                                                                            else {
+                                                                                                Xinge_Option.device_token = cells.deviceToken;
+                                                                                                Xinge_Option.message.title = "Flight updating service message";
+                                                                                                Xinge_Option.message.content = "尊敬的乘客" + cells.name + "您好，您所竞拍的" + flight + "号航班，以" + item.biddingPrice + "的价格，成功竞得商务舱位，请您通过app进行支付。";
+                                                                                                xinge.send(Xinge_Option, function (err, result) {
+                                                                                                    if(err){
+                                                                                                        console.log('ERROR: '+err);
+                                                                                                    }
+                                                                                                    console.log(result);
+                                                                                                });
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                            else {                                  //  the loser left
+                                                                                now_time = Date.parse(new Date());
+                                                                                userStateModel.create({
+                                                                                    userID: item.id,
+                                                                                    flight: flight,
+                                                                                    date: date,
+                                                                                    auctionID: auctionid,
+                                                                                    userstatus: 0,
+                                                                                    timeStamp: now_time
+                                                                                }, function (err) {
+                                                                                    if(err) {
+                                                                                        console.log(err);
+                                                                                        console.log(500 + ": Server error");
+                                                                                        clearInterval(IntervalID);
+                                                                                    }
+                                                                                    else {
+                                                                                        console.log("advanced auction bidding result saved");
+                                                                                    }
+                                                                                });
+                                                                                // sending losers
+                                                                                userTokenModel.findOne({id:item.id}, function (err, cells) {
+                                                                                    if(err){
+                                                                                        console.log("Error: " + err);
+                                                                                    }
+                                                                                    else {
+                                                                                        Xinge_Option.device_token = cells.deviceToken;
+                                                                                        Xinge_Option.message.title = "Flight updating service message";
+                                                                                        Xinge_Option.message.content = "尊敬的乘客" + cells.name + "您好，您所竞拍的" + flight + "号航班，很遗憾未能竞得商务舱位，详情请登录app查看。";
+                                                                                        xinge.send(Xinge_Option, function (err, result) {
+                                                                                            if(err){
+                                                                                                console.log('ERROR: '+err);
+                                                                                            }
+                                                                                            console.log(result);
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                        console.log("finish sending today's all candidates");
+                                                                        //  updating the auctionParams and open another round
+                                                                        startTime = Date.parse(new Date());
+                                                                        return auctionParamModel.update({auctionID: auctionid}, {
+                                                                            startTime: startTime,
+                                                                            seatnum: now_seat
+                                                                        }, function (err) {
+                                                                            if (err) {
+                                                                                console.log(err);
+                                                                                clearInterval(IntervalID);
+                                                                            }
+                                                                            else {
+                                                                                console.log("update seatnum to " + now_seat + " on Day " + day_count);
+                                                                                candidateID = [];
+                                                                                candidate = [];
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                }
+                                                            }
+                                                        });
                                                 }
                                             });
-                                        }
-                                        else {
-                                            console.log(403 + ': repeated auction id save failure');
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
-                                        }
+                                        };
+                                        var IntervalID = setInterval(updateState, timeLap * 1000);
                                     }
                                 });
                             }

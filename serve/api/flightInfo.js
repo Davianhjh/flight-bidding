@@ -3,10 +3,10 @@
  */
 const mongoose = require('mongoose');
 const db = require('../lib/Mymongoose');
-mongoose.Promise = Promise;
 db.on('error', function(error) {
     console.log(error);
 });
+const async = require('async');
 
 var flightInfoSchema = new mongoose.Schema({
     id: { type:String },
@@ -16,7 +16,6 @@ var flightInfoSchema = new mongoose.Schema({
     destination: { type:String },
     D_code: { type:String },
     date: { type:String },
-    userstatus: { type: Number },
     ticketnum: { type: String }
 },{collection:"flightInfo"});
 var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
@@ -24,12 +23,31 @@ var flightInfoModel = db.model("flightInfo", flightInfoSchema,"flightInfo");
 var auctionFlightManageSchema = new mongoose.Schema({
     flight: { type:String },
     date: { type:String },
-    auctionType: { type:Number },
-    baseprice: { type:Number },
+    origin: { type:String },
+    O_code: { type:String },
+    destination: { type:String },
+    D_code: { type:String },
+    departure: { type:String },
+    landing: { type:String },
     auctionID: { type:String },
-    auctionState: { type: Number}
+    auctionType: { type:Number },
+    stageType: { type:Number},
+    baseprice: { type:Number },
+    auctionState: { type:Number },
+    seatnum: { type:Number },
+    timeLap: { type: Number }
 },{collection:"auctionFlightManage"});
 var auctionFlightManageModel = db.model("auctionFlightManage", auctionFlightManageSchema,"auctionFlightManage");
+
+var userStateSchema = new mongoose.Schema({
+    userID: { type:String },
+    flight: { type:String },
+    date: { type:String },
+    auctionID: { type:String },
+    userstatus: { type:Number },
+    timeStamp: { type:Number }
+},{collection:"userState"});
+var userStateModel = db.model("userState", userStateSchema, "userState");
 
 var userTokenSchema = new mongoose.Schema({
     Token: {type: String}
@@ -43,6 +61,16 @@ function zeroFill (i) {
     return (i < 10 ? '0' : '') + i
 }
 
+var objectArraySort = function (keyName) {
+    return function (objectN, objectM) {
+        var valueN = objectN[keyName];
+        var valueM = objectM[keyName];
+        if (valueN < valueM) return 1;
+        else if (valueN > valueM) return -1;
+        else return 0
+    }
+};
+
 router.get('/', function (req, res, next) {
     var passengerID = "";
     var flight = req.query.flight;
@@ -53,21 +81,19 @@ router.get('/', function (req, res, next) {
         flights: []
     };
 
-    userTokenModel.find({Token:token}, function (err, docs) {
+    userTokenModel.findOne({Token:token}, function (err, docs) {
         if(err){
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if(docs.length === 0){
+            if(docs === null){
                 console.log(400+": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
@@ -76,8 +102,7 @@ router.get('/', function (req, res, next) {
                         console.log(error1);
                         console.log(403+ ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
@@ -88,134 +113,172 @@ router.get('/', function (req, res, next) {
 
                         if (typeof(auctionid) === "undefined" && typeof(flight) === "undefined") {
                             flightInfoModel.find({id: passengerID, date: dateStr})
-                                .exec(function (error, docs) {
-                                if (error) {
-                                    console.log(error);
-                                    console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    if (docs.length === 0) {
-                                        console.log(404 + ": Passenger not existed on today's flight");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                .exec(function (error, doc) {
+                                    if (error) {
+                                        console.log(error);
+                                        console.log(500 + ": Server error");
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        var flights = [];
-                                        var flightArray = [];
-                                        for(var k = 0; k < docs.length; k++){
-                                            flightArray.push(docs[k].flight)
+                                        if (doc.length === 0) {
+                                            //console.log(404 + ": Passenger have no flights today");
+                                            res.json(resdata);
+                                            res.end();
                                         }
-                                        auctionFlightManageModel.find({date:dateStr})
-                                            .where("flight").in(flightArray)
-                                            .where("auctionType").in([1,2,3,5])
-                                            .exec(function (err, lists) {
-                                                if(err){
-                                                    console.log(error);
-                                                    console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else {
-                                                    if(lists.length === 0){
-                                                        console.log("passenger have no auction flights today");
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                        else {
+                                            var flights = {};
+                                            var flightArray = [];
+                                            var auctionIDArray = [];
+                                            var ticketNoArray = {};
+                                            for (var i = 0; i < doc.length; i++) {
+                                                flightArray.push(doc[i].flight);
+                                                ticketNoArray[doc[i].flight] = doc[i].ticketnum;
+                                            }
+                                            auctionFlightManageModel.find({date: dateStr})
+                                                .where("flight").in(flightArray)
+                                                .where("auctionType").in([1, 2, 3, 5])
+                                                .exec(function (err, lists) {
+                                                    if (err) {
+                                                        console.log(error);
+                                                        console.log(500 + ": Server error");
+                                                        res.json(resdata);
                                                         res.end();
+                                                    }
+                                                    else if (lists.length !== 0) {
+                                                        lists.forEach(function (item) {
+                                                            var flightData = {
+                                                                flightno: item.flight,
+                                                                ticketno: ticketNoArray[item.flight],
+                                                                date: dateStr,
+                                                                userstatus : -1,
+                                                                auctionID: item.auctionID,
+                                                                auctionState: item.auctionState,
+                                                                auctionType: item.auctionType,
+                                                                departure: item.origin,
+                                                                departurecode: item.O_code,
+                                                                arrival: item.destination,
+                                                                arrivalcode: item.D_code
+                                                            };
+                                                            flights[item.auctionID] = flightData;
+                                                            auctionIDArray.push(item.auctionID);
+                                                        });
+                                                        userStateModel.find({userID:passengerID})
+                                                            .where('auctionID').in(auctionIDArray)
+                                                            .exec(function (err, arr) {
+                                                            if(err){
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.json(resdata);
+                                                                res.end();
+                                                            }
+                                                            else if(arr.length !== 0){
+                                                                var checked = [];
+                                                                arr.sort(objectArraySort('timeStamp'));
+                                                                for(var i=0; i<arr.length && checked.length !== auctionIDArray.length; i++){
+                                                                    var tmp = arr[i].auctionID;
+                                                                    if(!checked.includes(tmp)){
+                                                                        flights[tmp].userstatus = arr[i].userstatus;
+                                                                        resdata.flights.push(flights[tmp]);
+                                                                    }
+                                                                }
+                                                                res.json(resdata);
+                                                                flights = {};
+                                                                flightArray = [];
+                                                                ticketNoArray = {};
+                                                                auctionIDArray = [];
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                auctionIDArray.forEach(function (item) {
+                                                                    resdata.flights.push(flights[item]);
+                                                                });
+                                                                res.json(resdata);
+                                                                flights = {};
+                                                                flightArray = [];
+                                                                ticketNoArray = {};
+                                                                auctionIDArray = [];
+                                                                res.end();
+                                                            }
+                                                        });
                                                     }
                                                     else {
-                                                        for(var i=0; i < lists.length; i++){
-                                                            for(var j=0; j < docs.length; j++){
-                                                                if(lists[i].flight === docs[j].flight){
-                                                                    var flightData = {
-                                                                        flightno: docs[j].flight,
-                                                                        ticketno: docs[j].ticketnum,
-                                                                        date: docs[j].date,
-                                                                        userstatus: docs[j].userstatus,
-                                                                        auctionID: lists[i].auctionID,
-                                                                        auctionState: lists[i].auctionState,
-                                                                        auctionType: lists[i].auctionType,
-                                                                        departure: docs[j].origin,
-                                                                        departurecode: docs[j].O_code,
-                                                                        arrival: docs[j].destination,
-                                                                        arrivalcode: docs[j].D_code
-                                                                    };
-                                                                    break;
-                                                                }
-                                                            }
-                                                            flights.push(flightData);
-                                                        }
-                                                        resdata.flights = flights;
-                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                        res.write(JSON.stringify(resdata));
+                                                        res.json(resdata);
+                                                        flightArray = [];
+                                                        ticketNoArray = {};
                                                         res.end();
                                                     }
-                                                }
-                                        });
+                                                });
+                                        }
                                     }
-                                }
-                            });
+                                });
                         }
                         else if(typeof(auctionid) !== "undefined" && typeof(flight) !== "undefined"){
-                            flightInfoModel.find({
+                            flightInfoModel.findOne({
                                 id: passengerID,
-                                flight: flight,
-                                date: dateStr
+                                date: dateStr,
+                                flight: flight
                             }).exec(function (error, docs) {
                                 if (error) {
                                     console.log(error);
                                     console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
+                                    res.json(resdata);
                                     res.end();
                                 }
                                 else {
-                                    if (docs.length === 0) {
+                                    if (docs === null) {
                                         console.log(404 + ": Passenger not existed on flight " + flight);
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
                                         var flights = [];
-                                        auctionFlightManageModel.find({auctionID:auctionid, date:dateStr}, function (err, doc) {
+                                        auctionFlightManageModel.findOne({auctionID:auctionid}, function (err, doc) {
                                             if (err) {
                                                 console.log(err);
                                                 console.log(500 + ": Server error");
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                             else {
-                                                if(doc.length === 0) {
+                                                if(doc === null) {
                                                     console.log(403 + ": passenger auctionID invalid params error");
                                                     res.writeHead(200, {'Content-Type': 'application/json'});
                                                     res.write(JSON.stringify(resdata));
                                                     res.end();
                                                 }
                                                 else {
-                                                    var flightData = {
-                                                        flightno: docs[0].flight,
-                                                        ticketno: docs[0].ticketnum,
-                                                        date: docs[0].date,
-                                                        userstatus: docs[0].userstatus,
-                                                        auctionID: doc[0].auctionID,
-                                                        auctionState: doc[0].auctionState,
-                                                        auctionType: doc[0].auctionType,
-                                                        departure: docs[0].origin,
-                                                        departurecode: docs[0].O_code,
-                                                        arrival: docs[0].destination,
-                                                        arrivalcode: docs[0].D_code
-                                                    };
-                                                    flights.push(flightData);
-                                                    resdata.flights = flights;
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
+                                                    userStateModel.find({userID:passengerID, auctionID:auctionid})
+                                                        .sort({timeStamp: -1})
+                                                        .exec(function (err, arr) {
+                                                            if (err) {
+                                                                console.log(error);
+                                                                console.log(500 + ": Server error");
+                                                            }
+                                                            var flightData = {
+                                                                flightno: docs.flight,
+                                                                ticketno: docs.ticketnum,
+                                                                date: docs.date,
+                                                                //userstatus: -1,
+                                                                auctionID: doc.auctionID,
+                                                                auctionState: doc.auctionState,
+                                                                auctionType: doc.auctionType,
+                                                                departure: docs.origin,
+                                                                departurecode: docs.O_code,
+                                                                arrival: docs.destination,
+                                                                arrivalcode: docs.D_code
+                                                            };
+                                                            if (arr.length === 0) {
+                                                                flightData.userstatus = -1;
+                                                            }
+                                                            else {
+                                                                flightData.userstatus = arr[0].userstatus;
+                                                            }
+                                                            flights.push(flightData);
+                                                            resdata.flights = flights;
+                                                            res.json(resdata);
+                                                            res.end();
+                                                        });
                                                 }
                                             }
                                         });
@@ -225,8 +288,7 @@ router.get('/', function (req, res, next) {
                         }
                         else {
                             console.log("flight or auctionid params error");
-                            res.writeHead(200, {'Content-Type': 'application/json'});
-                            res.write(JSON.stringify(resdata));
+                            res.json(resdata);
                             res.end();
                         }
                     }

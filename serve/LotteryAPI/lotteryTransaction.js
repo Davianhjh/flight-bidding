@@ -62,7 +62,7 @@ var lotteryResultSchema = new mongoose.Schema({
     auctionID: { type:String },
     id: { type:String },
     flight: { type:String },
-    seat: { type:String },
+    //seat: { type:String },
     biddingPrice: { type:Number },
     lotterynum: { type:Number },
     timeStamp: { type:Number },
@@ -211,21 +211,19 @@ router.post('/',function (req, res, next) {
     var resdata = {
         result : 1
     };
-    userTokenModel.find({Token: token}, function (err, docs) {
+    userTokenModel.findOne({Token: token}, function (err, docs) {
         if (err) {
             console.log(err);
             console.log(500 + ": Server error");
             resdata.result = -1;
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.write(JSON.stringify(resdata));
+            res.json(resdata);
             res.end();
         }
         else {
-            if (docs.length === 0) {
+            if (docs === null) {
                 console.log(400 + ": Token is wrong");
                 resdata.result = -1;
-                res.writeHead(200, {'Content-Type': 'application/json'});
-                res.write(JSON.stringify(resdata));
+                res.json(resdata);
                 res.end();
             }
             else {
@@ -234,155 +232,146 @@ router.post('/',function (req, res, next) {
                         console.log(error1);
                         console.log(403 + ": Token is not valid");
                         resdata.result = -1;
-                        res.writeHead(200, {'Content-Type': 'application/json'});
-                        res.write(JSON.stringify(resdata));
+                        res.json(resdata);
                         res.end();
                     }
                     else {
                         passengerID = decoded.id;
                         if (action === "createBilling") {
-                            lotteryResultModel.find({id: passengerID, auctionID: auctionid}, function (err, docs) {
-                                if (err) {
-                                    console.log(err);
-                                    console.log(500 + ": Server error");
-                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                    res.write(JSON.stringify(resdata));
-                                    res.end();
-                                }
-                                else {
-                                    if (docs.length === 0) {
-                                        console.log(404 + ": Passenger not participate in the lottery ticket on flight " + flight);
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                            lotteryResultModel.find({id: passengerID, auctionID: auctionid, paymentState:false})
+                                .sort({timeStamp: -1})
+                                .exec(function (err, docs) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log(500 + ": Server error");
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        var timestamp = Date.parse(new Date());
-                                        var transactionid = getTransID(flight + passengerID) + (timestamp/1000).toString();
-                                        console.log(transactionid);
-                                        var total_amount = docs[0].biddingPrice;
-
-                                        if (method === "Alipay") {
-                                            resdata = {
-                                                result: 1,
-                                                method: method,
-                                                status: false,
-                                                transactionID: "",
-                                                signType: "RSA2",
-                                                signedstr: "",
-                                                price: 0
-                                            };
-                                            AlipayConfig.biz_content.total_amount = total_amount.toString();
-                                            AlipayConfig.biz_content.out_trade_no = transactionid;
-                                            var mySign = getSign(AlipayConfig);
-                                            var myParam = getParams(AlipayConfig);
-                                            var str = myParam + '&sign=' + mySign;
-                                            var signedstr = encodeMyStr(str);
-                                            var transactionData = new transactionInfoModel({
-                                                "transactionID": transactionid,
-                                                "passengerID": passengerID,
-                                                "auctionID": auctionid,
-                                                "amount": total_amount,
-                                                "date": timestamp,
-                                                "method": method,
-                                                "paymentState": false,
-                                                "signedstr": signedstr
-                                            });
-                                            transactionInfoModel.find({transactionID: transactionid}, function (err, docs) {
-                                                if (err) {
-                                                    console.log(err);
-                                                    console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else if (docs.length === 0) {
-                                                    transactionData.save(function (err) {
-                                                        if (err) {
-                                                            console.log(err);
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            console.log('save success');
-                                                            resdata.signedstr = signedstr;
-                                                            resdata.transactionID = transactionid;
-                                                            resdata.price = total_amount;
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                    });
-                                                }
-                                                else {
-                                                    console.log(403 + ': repeated transaction id');
-                                                    resdata.signedstr = docs[0].signedstr;
-                                                    resdata.transactionID = transactionid;
-                                                    resdata.price = total_amount;
-                                                    resdata.status = true;
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                            });
+                                        if (docs.length === 0) {
+                                            console.log(404 + ": Passenger not participate in the lottery ticket on flight " + flight);
+                                            res.json(resdata);
+                                            res.end();
                                         }
-                                        else if (method === "wxpay") {
-                                            var wxpay = new WxPay(Wxpay_Config);
-                                            WxPay_Options.out_trade_no = transactionid;
-                                            WxPay_Options.total_fee = total_amount;
-                                            WxPay_Options.spbill_create_ip = user_ip;
-                                            wxpay.requestPay(WxPay_Options, function (err, result) {
-                                                if (err) {
-                                                    console.log('ERROR: ' + err);
-                                                }
-                                                else if (result.return_code === 'FAIL') {
-                                                    console.log("return_msg: " + result.return_msg);
-                                                    resdata.prepay_id = "";
-                                                    resdata.signedstr = "";
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else if (result.result_code !== 'SUCCESS') {
-                                                    console.log("result_code" + result.return_code);
-                                                    resdata.prepay_id = "";
-                                                    resdata.signedstr = "";
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else {
-                                                    console.log(result);
-                                                    var timeStamp = Date.parse(new Date()) / 1000;
-                                                    var Prepay_Config = {
-                                                        appid: Wxpay_Config.appid,
-                                                        partnerid: Wxpay_Config.mch_id,
-                                                        package: "Sign=WXPay",
-                                                        key: Wxpay_Config.key
-                                                    };
-                                                    var Prepay_options = {
-                                                        prepay_id: result.prepay_id,
-                                                        timestamp: timeStamp
-                                                    };
-                                                    var prepay = new WxPay(Prepay_Config);
-                                                    var data = prepay.WXsign(Prepay_options);
-                                                    resdata.appid = Wxpay_Config.appid;
-                                                    resdata.partnerid = Wxpay_Config.mch_id;
-                                                    resdata.prepay_id = result.prepay_id;
-                                                    resdata.package = "Sign=WXPay";
-                                                    resdata.noncestr = data.noncestr;
-                                                    resdata.timestamp = timeStamp;
-                                                    resdata.sign = data.sign;
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                            });
+                                        else {
+                                            var timestamp = Date.parse(new Date());
+                                            var transactionid = getTransID(flight + passengerID) + (timestamp/1000).toString();
+                                            console.log(transactionid);
+                                            var total_amount = docs[0].biddingPrice;
+                                            if (method === "Alipay") {
+                                                resdata = {
+                                                    result: 1,
+                                                    method: method,
+                                                    status: false,
+                                                    transactionID: "",
+                                                    signType: "RSA2",
+                                                    signedstr: "",
+                                                    price: 0
+                                                };
+                                                AlipayConfig.biz_content.total_amount = total_amount.toString();
+                                                AlipayConfig.biz_content.out_trade_no = transactionid;
+                                                var mySign = getSign(AlipayConfig);
+                                                var myParam = getParams(AlipayConfig);
+                                                var str = myParam + '&sign=' + mySign;
+                                                var signedstr = encodeMyStr(str);
+                                                var transactionData = new transactionInfoModel({
+                                                    "transactionID": transactionid,
+                                                    "passengerID": passengerID,
+                                                    "auctionID": auctionid,
+                                                    "amount": total_amount,
+                                                    "date": timestamp,
+                                                    "method": method,
+                                                    "paymentState": false,
+                                                    "signedstr": signedstr
+                                                });
+                                                transactionInfoModel.findOne({transactionID: transactionid}, function (err, docs) {
+                                                    if (err) {
+                                                        console.log(err);
+                                                        console.log(500 + ": Server error");
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                    else if (docs === null) {
+                                                        transactionData.save(function (err) {
+                                                            if (err) {
+                                                                console.log(err);
+                                                                console.log(500 + ": Server error");
+                                                                res.json(resdata);
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log('save success');
+                                                                resdata.signedstr = signedstr;
+                                                                resdata.transactionID = transactionid;
+                                                                resdata.price = total_amount;
+                                                                res.json(resdata);
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
+                                                    else {
+                                                        console.log(403 + ': repeated transaction id');
+                                                        resdata.signedstr = docs.signedstr;
+                                                        resdata.transactionID = transactionid;
+                                                        resdata.price = total_amount;
+                                                        resdata.status = true;
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                });
+                                            }
+                                            else if (method === "wxpay") {
+                                                var wxpay = new WxPay(Wxpay_Config);
+                                                WxPay_Options.out_trade_no = transactionid;
+                                                WxPay_Options.total_fee = total_amount;
+                                                WxPay_Options.spbill_create_ip = user_ip;
+                                                wxpay.requestPay(WxPay_Options, function (err, result) {
+                                                    if (err) {
+                                                        console.log('ERROR: ' + err);
+                                                    }
+                                                    else if (result.return_code === 'FAIL') {
+                                                        console.log("return_msg: " + result.return_msg);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                    else if (result.result_code !== 'SUCCESS') {
+                                                        console.log("result_code" + result.return_code);
+                                                        resdata.prepay_id = "";
+                                                        resdata.signedstr = "";
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        console.log(result);
+                                                        var timeStamp = Date.parse(new Date()) / 1000;
+                                                        var Prepay_Config = {
+                                                            appid: Wxpay_Config.appid,
+                                                            partnerid: Wxpay_Config.mch_id,
+                                                            package: "Sign=WXPay",
+                                                            key: Wxpay_Config.key
+                                                        };
+                                                        var Prepay_options = {
+                                                            prepay_id: result.prepay_id,
+                                                            timestamp: timeStamp
+                                                        };
+                                                        var prepay = new WxPay(Prepay_Config);
+                                                        var data = prepay.WXsign(Prepay_options);
+                                                        resdata.appid = Wxpay_Config.appid;
+                                                        resdata.partnerid = Wxpay_Config.mch_id;
+                                                        resdata.prepay_id = result.prepay_id;
+                                                        resdata.package = "Sign=WXPay";
+                                                        resdata.noncestr = data.noncestr;
+                                                        resdata.timestamp = timeStamp;
+                                                        resdata.sign = data.sign;
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                });
+                                            }
                                         }
                                     }
-                                }
                             });
                         }
                         else if (action === "confirmPayment") {
@@ -394,91 +383,84 @@ router.post('/',function (req, res, next) {
                                 luckyRegion: []
                             };
                             if(TEST_SWITCH){
-                                lotteryResultModel.find({
-                                    auctionID: auctionid,
-                                    id: passengerID
-                                }, function (err, docs) {
+                                lotteryResultModel.find({auctionID: auctionid, id: passengerID, paymentState:true})
+                                    .sort({timeStamp: -1})
+                                    .exec(function (err, docs) {
                                     if (err) {
                                         console.log(500 + ": Server error");
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                     }
                                     else {
-                                        if (docs.length === 0) {
-                                            console.log(404 + ': passenger not found in lotteryResult');
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
-                                            res.end();
+                                        if(docs.length === 0) {
+                                            var init = [];
+                                            var now_lotterynum = 0;
                                         }
                                         else {
-                                            var init = docs[0].luckyRegion;
-                                            var now_lotterynum = docs[0].lotterynum;
-                                            var tradeID = req.body.out_trade_no;
-                                            var total_amount = parseInt(req.body.total_amount);
-                                            transactionInfoModel.find({transactionID: tradeID}, function (err, docs) {
-                                                if (err) {
-                                                    console.log(500 + ": Server error");
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else if (docs.length === 0) {
-                                                    console.log(403 + ': out_trade_no is not correct');
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
-                                                    res.end();
-                                                }
-                                                else {
-                                                    resdata.acknowledged = true;
-                                                    transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
-                                                        if (err) {
-                                                            console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
-                                                            res.end();
-                                                        }
-                                                        else {
-                                                            var start = POOL.lotteryPool[auctionid] + 1;
-                                                            POOL.lotteryPool[auctionid] += total_amount;
-                                                            resdata.total = POOL.lotteryPool[auctionid];
-                                                            console.log("NOW POOL: " + POOL.lotteryPool[auctionid]);
-                                                            var region = [];
-                                                            for (var i = 0; i < total_amount; i++) {
-                                                                region.push(start + i);
-                                                            }
-                                                            init.push(region);
-                                                            now_lotterynum += total_amount;
-                                                            lotteryResultModel.update({
-                                                                auctionID: auctionid,
-                                                                id: passengerID
-                                                            }, {
-                                                                paymentState: true,
-                                                                biddingPrice: 0,
-                                                                lotterynum: now_lotterynum,
-                                                                luckyRegion: init
-                                                            }, function (err) {
-                                                                if (err) {
-                                                                    console.log(500 + ": Server error");
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                                else {
-                                                                    console.log("payment confirmed successfully");
-                                                                    resdata.acknowledged = true;
-                                                                    resdata.lotterynum = now_lotterynum;
-                                                                    resdata.luckyRegion = regionFormat(init);
-                                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                    res.write(JSON.stringify(resdata));
-                                                                    res.end();
-                                                                }
-                                                            });
-                                                        }
-                                                    });
-                                                }
-                                            });
+                                            init = docs[0].luckyRegion;
+                                            now_lotterynum = docs[0].lotterynum;
                                         }
+                                        var tradeID = req.body.out_trade_no;
+                                        var total_amount = parseInt(req.body.total_amount);
+                                        transactionInfoModel.findOne({transactionID: tradeID}, function (err, docs) {
+                                            if (err) {
+                                                console.log(500 + ": Server error");
+                                                res.json(resdata);
+                                                res.end();
+                                            }
+                                            else if (docs === null) {
+                                                console.log(403 + ': out_trade_no is not correct');
+                                                res.json(resdata);
+                                                res.end();
+                                            }
+                                            else {
+                                                resdata.acknowledged = true;
+                                                transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
+                                                    if (err) {
+                                                        console.log(500 + ": Server error");
+                                                        res.json(resdata);
+                                                        res.end();
+                                                    }
+                                                    else {
+                                                        var start = POOL.lotteryPool[auctionid] + 1;
+                                                        POOL.lotteryPool[auctionid] += total_amount;
+                                                        resdata.total = POOL.lotteryPool[auctionid];
+                                                        console.log("NOW POOL: " + POOL.lotteryPool[auctionid]);
+                                                        var region = [];
+                                                        for (var i = 0; i < total_amount; i++) {
+                                                            region.push(start + i);
+                                                        }
+                                                        init.push(region);
+                                                        now_lotterynum += total_amount;
+                                                        lotteryResultModel.create({
+                                                            auctionID: auctionid,
+                                                            id: passengerID,
+                                                            flight: flight,
+                                                            biddingPrice: 0,
+                                                            lotterynum: now_lotterynum,
+                                                            timeStamp: Date.parse(new Date()),
+                                                            paymentState: true,
+                                                            luckyRegion: init,
+                                                            hit: false
+                                                        }, function (err) {
+                                                            if (err) {
+                                                                console.log(500 + ": Server error");
+                                                                res.json(resdata);
+                                                                res.end();
+                                                            }
+                                                            else {
+                                                                console.log("payment confirmed successfully");
+                                                                resdata.acknowledged = true;
+                                                                resdata.lotterynum = now_lotterynum;
+                                                                resdata.luckyRegion = regionFormat(init);
+                                                                res.json(resdata);
+                                                                res.end();
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
                                     }
                                 });
                             }
@@ -493,31 +475,33 @@ router.post('/',function (req, res, next) {
                                         sign_type = "RSA-SHA1";
                                     else {
                                         console.log(403 + ': sign_type is not correct');
-                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                        res.write(JSON.stringify(resdata));
+                                        res.json(resdata);
                                         res.end();
                                         return;
                                     }
-                                    lotteryResultModel.find({
-                                        auctionID: auctionid,
-                                        id: passengerID
-                                    }, function (err, docs) {
+                                    lotteryResultModel.find({auctionID: auctionid, id: passengerID, paymentState: true})
+                                        .sort({timeStamp: -1})
+                                        .exec(function (err, docs) {
                                         if (err) {
                                             console.log(500 + ": Server error");
-                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                            res.write(JSON.stringify(resdata));
+                                            res.json(resdata);
                                             res.end();
                                         }
                                         else {
                                             if (docs.length === 0) {
                                                 console.log(404 + ': passenger not found in lotteryResult');
-                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                res.write(JSON.stringify(resdata));
+                                                res.json(resdata);
                                                 res.end();
                                             }
                                             else {
-                                                var init = docs[0].luckyRegion;
-                                                var now_lotterynum = docs[0].lotterynum;
+                                                if(docs.length === 0) {
+                                                    var init = [];
+                                                    var now_lotterynum = 0;
+                                                }
+                                                else {
+                                                    init = docs[0].luckyRegion;
+                                                    now_lotterynum = docs[0].lotterynum;
+                                                }
                                                 var verifyResult = verifySign(alipay_trade_app_pay_response, sign, sign_type);
                                                 if (verifyResult) {
                                                     // sign is verified successfully
@@ -525,27 +509,24 @@ router.post('/',function (req, res, next) {
                                                     var total_amount = parseInt(alipay_trade_app_pay_response.total_amount);
                                                     var seller_id = alipay_trade_app_pay_response.seller_id;
                                                     var app_id = alipay_trade_app_pay_response.app_id;
-                                                    transactionInfoModel.find({transactionID: tradeID}, function (err, docs) {
+                                                    transactionInfoModel.findOne({transactionID: tradeID}, function (err, docs) {
                                                         if (err) {
                                                             console.log(500 + ": Server error");
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
+                                                            res.json(resdata);
                                                             res.end();
                                                         }
-                                                        else if (docs.length === 0) {
+                                                        else if (docs === null) {
                                                             console.log(403 + ': out_trade_no is not correct');
-                                                            res.writeHead(200, {'Content-Type': 'application/json'});
-                                                            res.write(JSON.stringify(resdata));
+                                                            res.json(resdata);
                                                             res.end();
                                                         }
                                                         else {
-                                                            if (docs[0].amount === total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
+                                                            if (docs.amount === total_amount && seller_id === "2088721362369575" && app_id === "2017062807587266") {
                                                                 resdata.acknowledged = true;
                                                                 transactionInfoModel.update({transactionID: tradeID}, {paymentState: true}, function (err) {
                                                                     if (err) {
                                                                         console.log(500 + ": Server error");
-                                                                        res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                        res.write(JSON.stringify(resdata));
+                                                                        res.json(resdata);
                                                                         res.end();
                                                                     }
                                                                     else {
@@ -558,19 +539,20 @@ router.post('/',function (req, res, next) {
                                                                         }
                                                                         init.push(region);
                                                                         now_lotterynum += total_amount;
-                                                                        lotteryResultModel.update({
+                                                                        lotteryResultModel.create({
                                                                             auctionID: auctionid,
-                                                                            id: passengerID
-                                                                        }, {
-                                                                            paymentState: true,
+                                                                            id: passengerID,
+                                                                            flight: flight,
                                                                             biddingPrice: 0,
                                                                             lotterynum: now_lotterynum,
-                                                                            luckyRegion: init
+                                                                            timeStamp: Date.parse(new Date()),
+                                                                            paymentState: true,
+                                                                            luckyRegion: init,
+                                                                            hit: false
                                                                         }, function (err) {
                                                                             if (err) {
                                                                                 console.log(500 + ": Server error");
-                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                res.write(JSON.stringify(resdata));
+                                                                                res.json(resdata);
                                                                                 res.end();
                                                                             }
                                                                             else {
@@ -578,8 +560,7 @@ router.post('/',function (req, res, next) {
                                                                                 resdata.acknowledged = true;
                                                                                 resdata.lotterynum = now_lotterynum;
                                                                                 resdata.luckyRegion = regionFormat(init);
-                                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                                res.write(JSON.stringify(resdata));
+                                                                                res.json(resdata);
                                                                                 res.end();
                                                                             }
                                                                         });
@@ -590,8 +571,7 @@ router.post('/',function (req, res, next) {
                                                                 console.log("total_amount / seller_id / app_id not correct");
                                                                 resdata.lotterynum = now_lotterynum;
                                                                 resdata.luckyRegion = regionFormat(init);
-                                                                res.writeHead(200, {'Content-Type': 'application/json'});
-                                                                res.write(JSON.stringify(resdata));
+                                                                res.json(resdata);
                                                                 res.end();
                                                             }
                                                         }
@@ -601,8 +581,7 @@ router.post('/',function (req, res, next) {
                                                     console.log(403 + ": signature verify failed");
                                                     resdata.lotterynum = now_lotterynum;
                                                     resdata.luckyRegion = regionFormat(init);
-                                                    res.writeHead(200, {'Content-Type': 'application/json'});
-                                                    res.write(JSON.stringify(resdata));
+                                                    res.json(resdata);
                                                     res.end();
                                                 }
                                             }

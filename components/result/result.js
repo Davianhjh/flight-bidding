@@ -4,7 +4,7 @@ $(function () {
     // console.log(location.hash.substr(1));
     var dataStr = location.hash.substr(1);
     var paramData = dataStr.split("$");
-    console.log(paramData[0],paramData[1]);
+    console.log(paramData[0], paramData[1], paramData[2], paramData[3]);
     var formdata = {};
 
     $.ajax({
@@ -17,7 +17,9 @@ $(function () {
         },
         data: {
                 flight:paramData[0],
-                date:paramData[1]        
+                date:paramData[1],
+                stage:paramData[2],
+                type:paramData[3]     
                 },
         success: function(data){
             console.log(data);

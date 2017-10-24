@@ -14,6 +14,7 @@ var chartDataSchema = new mongoose.Schema({
     price: { type: Array }
 },{collection:"chartData"});
 var chartDataModel = db.model("chartData", chartDataSchema,"chartData");
+var PREVIOUS_DATA = {};
 
 var ROUND = 20;
 var USERS = [];
@@ -50,26 +51,26 @@ router.get('/', function(req, res, next){
     });
 
     var query = { auctionID:auctionid };
-    chartDataModel.find(query, function (error, docs) {
+    chartDataModel.findOne(query, function (error, docs) {
         if(error)
             console.log(error);
         else {
-            if(docs.length===0) {
+            if(docs === null) {
                 data.save(function (err) {
                     if (err)
                         console.log(err);
                     else {
                         console.log('save success');
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.write(JSON.stringify(result));
+                        PREVIOUS_DATA[auctionid] = data.price[8];
+                        res.json(result);
                         res.end();
                     }
                 });
             }
             else {
-                console.log('repeated auction id save failure');
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.write(JSON.stringify(result));
+                //console.log('repeated auction id save failure');
+                PREVIOUS_DATA[auctionid] = docs.price[8];
+                res.json(result);
                 res.end();
             }
         }
@@ -100,7 +101,7 @@ function prediction(presentFee, presentSeat) {
     }
     mid = sum/seed;           //取平均值
     sum = 0;
-    console.log('mid: '+mid);
+    //console.log('mid: '+mid);
 
     for(var j=0; j<seed; j++){
         BID[j].sort();
@@ -110,7 +111,7 @@ function prediction(presentFee, presentSeat) {
     }
     high = sum/seed;          //取平均值
     sum =0;
-    console.log('high: '+high);
+    //console.log('high: '+high);
 
     for(var k=0; k<seed; k++){
         BID[k].sort();
@@ -119,7 +120,7 @@ function prediction(presentFee, presentSeat) {
         sum += pp[k];
     }
     zero = sum/seed;          //取平均值
-    console.log('zero: '+zero);
+    //console.log('zero: '+zero);
 
     for(var n=0; n<=10; n++){
         if(n<=5){
@@ -140,5 +141,6 @@ function prediction(presentFee, presentSeat) {
 
 module.exports = {
     router: router,
-    path: '/expChart'
+    path: '/expChart',
+    previous_data: PREVIOUS_DATA
 };
